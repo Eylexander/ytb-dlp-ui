@@ -11,7 +11,7 @@ import (
 	"eylexander/ytdlp-ui/backend/src/models"
 )
 
-const CookieName = "ytdlp_session"
+const cookieName = "ytdlp_session"
 
 type API struct {
 	cfg  *models.Config
@@ -27,9 +27,7 @@ func (a *API) Health(w http.ResponseWriter, r *http.Request) {
 	_, ffErr := exec.LookPath("ffmpeg")
 	_, denoErr := exec.LookPath("deno")
 	var disk syscall.Statfs_t
-	if err := syscall.Statfs(a.cfg.DataDir, &disk); err != nil {
-		disk = syscall.Statfs_t{} // zeros: the UI then hides the disk info
-	}
+	_ = syscall.Statfs(a.cfg.DataDir, &disk) // stays zero on error: the UI then hides the disk info
 	writeJSON(w, http.StatusOK, map[string]any{
 		"diskFree":    disk.Bavail * uint64(disk.Bsize),
 		"diskTotal":   disk.Blocks * uint64(disk.Bsize),

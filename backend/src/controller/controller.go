@@ -29,7 +29,7 @@ import (
 // Each job's files live in <DATA_DIR>/downloads/<id>/.
 type Controller struct {
 	cfg     *models.Config
-	db      *datastore.Postgres
+	db      datastore.DataStore
 	dir     string
 	mu      sync.Mutex
 	jobs    map[string]*models.Job
@@ -43,11 +43,12 @@ type Controller struct {
 	versionMu sync.Mutex
 	version   string
 
-	authMu sync.Mutex
-	fails  map[string][]time.Time
+	authMu  sync.Mutex
+	account models.Account
+	fails   map[string][]time.Time
 }
 
-func NewController(cfg *models.Config, db *datastore.Postgres) (*Controller, error) {
+func NewController(cfg *models.Config, db datastore.DataStore) (*Controller, error) {
 	c := &Controller{
 		cfg:     cfg,
 		db:      db,
@@ -63,9 +64,12 @@ func NewController(cfg *models.Config, db *datastore.Postgres) (*Controller, err
 			return nil, err
 		}
 	}
+	if err := c.loadAccount(); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), datastore.Timeout)
 	defer cancel()
-	saved, err := db.LoadDownloads(ctx)
+	saved, err := db.GetDownloads(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loading downloads: %w", err)
 	}
@@ -74,6 +78,8 @@ func NewController(cfg *models.Config, db *datastore.Postgres) (*Controller, err
 			j.Status, j.Error = models.StatusFailed, "interrupted" // a jobErrors code, see ClassifyError
 			os.RemoveAll(filepath.Join(c.dir, j.ID))
 			c.saveLocked(j)
+		} else if c.fixSize(j) {
+			c.saveLocked(j) // rows saved before sizes came from the file (showed one stream only)
 		}
 		c.jobs[j.ID] = j
 	}
@@ -134,9 +140,18 @@ func (c *Controller) Create(link string, opts models.Options) (models.Job, error
 	idBytes := make([]byte, 6)
 	rand.Read(idBytes)
 	j := &models.Job{ID: hex.EncodeToString(idBytes), URL: link, Options: opts, Status: models.StatusQueued, CreatedAt: time.Now()}
-	ctx, cancel := context.WithCancel(context.Background())
 
 	c.mu.Lock()
+	if src := opts.ConvertFrom; src != "" {
+		s, ok := c.jobs[src]
+		if !ok || s.Status != models.StatusDone || s.File == "" {
+			c.mu.Unlock()
+			return models.Job{}, models.UserErr("convert_source_missing", "The original file isn't available anymore", nil)
+		}
+		j.URL, j.Title, j.Thumbnail, j.Uploader, j.Duration = s.URL, s.Title, s.Thumbnail, s.Uploader, s.Duration
+		_ = os.Link(c.thumbPath(src), c.thumbPath(j.ID)) // share the cached thumbnail; fetched on first view otherwise
+	}
+	ctx, cancel := context.WithCancel(context.Background())
 	c.jobs[j.ID], c.cancels[j.ID] = j, cancel
 	c.saveLocked(j)
 	resp := *j
@@ -185,17 +200,6 @@ func (c *Controller) Delete(id string) (found bool, err error) {
 	return true, os.RemoveAll(filepath.Join(c.dir, id))
 }
 
-// File returns the path and name of a finished download.
-func (c *Controller) File(id string) (path, name string, ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	j, ok := c.jobs[id]
-	if !ok || j.Status != models.StatusDone || j.File == "" {
-		return "", "", false
-	}
-	return filepath.Join(c.dir, id, j.File), j.File, true
-}
-
 // Shutdown kills running yt-dlp processes so they don't outlive the server.
 func (c *Controller) Shutdown() {
 	c.mu.Lock()
@@ -225,8 +229,17 @@ func (c *Controller) run(ctx context.Context, id string) {
 
 	var stderr bytes.Buffer
 	var err error
-	if ctx.Err() == nil {
-		cmd := exec.CommandContext(ctx, c.cfg.YtDlp, BuildArgs(j.Options, dir, j.URL)...)
+	convert := j.Options.ConvertFrom != ""
+	cmd, handle := (*exec.Cmd)(nil), c.handleLine
+	if !convert {
+		cmd = exec.CommandContext(ctx, c.cfg.YtDlp, BuildArgs(j.Options, dir, j.URL)...)
+	} else if src := c.Files([]string{j.Options.ConvertFrom}); len(src) == 0 {
+		err = errSourceGone
+	} else {
+		cmd, handle = exec.CommandContext(ctx, "ffmpeg", ConvertArgs(j.Options, src[0].Path, dir)...), c.handleFFmpegLine
+		err = os.MkdirAll(dir, 0o755)
+	}
+	if ctx.Err() == nil && err == nil {
 		// Own process group so cancel also kills the ffmpeg children yt-dlp spawns.
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
@@ -236,7 +249,7 @@ func (c *Controller) run(ctx context.Context, id string) {
 			sc := bufio.NewScanner(stdout)
 			sc.Buffer(make([]byte, 64*1024), 1024*1024)
 			for sc.Scan() {
-				c.handleLine(id, sc.Text())
+				handle(id, sc.Text())
 			}
 			_, _ = io.Copy(io.Discard, stdout) // drain so Wait can't block on a full pipe
 			err = cmd.Wait()
@@ -261,8 +274,17 @@ func (c *Controller) run(ctx context.Context, id string) {
 	switch {
 	case ctx.Err() != nil:
 		job.Status = models.StatusCanceled
+	case errors.Is(err, errSourceGone):
+		job.Status, job.Error = models.StatusFailed, "source_missing"
+	case errors.Is(err, exec.ErrNotFound) && convert:
+		job.Status, job.Error, job.ErrorDetail = models.StatusFailed, "ffmpeg_missing", err.Error()
 	case errors.Is(err, exec.ErrNotFound):
 		job.Status, job.Error, job.ErrorDetail = models.StatusFailed, "ytdlp_missing", err.Error()
+	case err != nil && convert:
+		job.Status, job.Error, job.ErrorDetail = models.StatusFailed, "generic", strings.TrimSpace(stderr.String())
+		if strings.Contains(job.ErrorDetail, "matches no streams") {
+			job.Error = "no_audio"
+		}
 	case err != nil:
 		job.Status = models.StatusFailed
 		job.Error, job.ErrorDetail = ClassifyError(stderr.String())
@@ -276,8 +298,23 @@ func (c *Controller) run(ctx context.Context, id string) {
 				job.File = entries[0].Name()
 			}
 		}
+		c.fixSize(job)
 	}
 	c.saveLocked(job)
+}
+
+// fixSize sets a finished job's size from its file: progress only reports one stream at a
+// time, so a merged video would otherwise show the size of its audio. Reports a change.
+func (c *Controller) fixSize(j *models.Job) bool {
+	if j.Status != models.StatusDone || j.File == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(c.dir, j.ID, j.File))
+	if err != nil || info.Size() == j.Size {
+		return false
+	}
+	j.Size = info.Size()
+	return true
 }
 
 func (c *Controller) handleLine(id, line string) {

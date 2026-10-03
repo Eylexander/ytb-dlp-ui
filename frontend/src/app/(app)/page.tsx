@@ -7,9 +7,9 @@ import { useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import AllowedOptions from "@/components/AllowedOptions";
 import JobCard from "@/components/JobCard";
-import { api } from "@/lib/api-client";
+import { api, each } from "@/lib/api-client";
 import { useJobs } from "@/hooks/useJobs";
-import type { Job, Options } from "@/types/download";
+import type { Options } from "@/types/download";
 
 const DEFAULTS: Options = {
   mode: "video",
@@ -25,23 +25,7 @@ const DEFAULTS: Options = {
 };
 const STORAGE_KEY = "ytdlp-ui:options:v2";
 
-const isHttpUrl = (s: string) => {
-  try {
-    return /^https?:$/.test(new URL(s).protocol);
-  } catch {
-    return false;
-  }
-};
-
-const QUALITIES = [
-  ["best", null], // translated: Download.qualityBest
-  ["2160", null], // translated: Download.quality2160
-  ["1440", "1440p"],
-  ["1080", "1080p"],
-  ["720", "720p"],
-  ["480", "480p"],
-  ["360", "360p"],
-] as const;
+const QUALITIES = ["best", "2160", "1440", "1080", "720", "480", "360"] as const;
 
 export default function DownloadPage() {
   const t = useTranslations("Download");
@@ -49,7 +33,6 @@ export default function DownloadPage() {
   const [url, setUrl] = useState("");
   const [opts, setOpts] = useState<Options>(DEFAULTS);
   const [submitting, setSubmitting] = useState(false);
-  const [urlError, setUrlError] = useState<string | null>(null);
 
   // Remember the last used options in this browser.
   useEffect(() => {
@@ -73,7 +56,6 @@ export default function DownloadPage() {
     try {
       const clip = (await navigator.clipboard.readText()).trim();
       setUrl((prev) => (prev.trim() ? `${prev.trim()}\n${clip}` : clip));
-      setUrlError(null);
     } catch {
       toast.error(t("clipboardBlocked"));
     }
@@ -83,22 +65,9 @@ export default function DownloadPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const unique = [...new Set(links)];
-    const invalid = unique.filter((l) => !isHttpUrl(l));
-    if (invalid.length) {
-      setUrlError(t("invalidLinks", { links: invalid.slice(0, 3).join(", ") + (invalid.length > 3 ? "…" : "") }));
-      return;
-    }
     setSubmitting(true);
-    const failed: string[] = [];
-    let firstError = "";
-    for (const link of unique) {
-      try {
-        await api<Job>("/downloads", { json: { url: link, options: opts } });
-      } catch (err) {
-        failed.push(link);
-        firstError ||= (err as Error).message;
-      }
-    }
+    // Invalid links are rejected by the server one by one and stay in the box.
+    const { failed, firstError } = await each(unique, (url) => api("/downloads", { json: { url, options: opts } }));
     const added = unique.length - failed.length;
     if (added) toast.success(t("added", { count: added }));
     if (failed.length) toast.error(t("someFailed", { count: failed.length, error: firstError }));
@@ -138,17 +107,14 @@ export default function DownloadPage() {
                 <textarea
                   id="url"
                   rows={Math.min(Math.max(url.split("\n").length, 1), 8)}
-                  className={`input h-auto min-h-12 py-3 pr-12 resize-none leading-6 ${urlError ? "!border-destructive focus:!ring-destructive/30" : ""}`}
+                  className="input h-auto min-h-12 py-3 pr-12 resize-none leading-6"
                   placeholder={t("linksPlaceholder")}
                   inputMode="url"
                   autoComplete="off"
                   spellCheck={false}
                   autoFocus
                   value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-                    setUrlError(null);
-                  }}
+                  onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => {
                     // Enter downloads, Shift+Enter adds a line
                     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -156,8 +122,6 @@ export default function DownloadPage() {
                       e.currentTarget.form?.requestSubmit();
                     }
                   }}
-                  aria-invalid={!!urlError}
-                  aria-describedby={urlError ? "url-error" : undefined}
                 />
                 <button type="button" onClick={paste} className="btn-icon absolute right-1.5 top-1.5" aria-label={t("pasteLabel")} title={t("paste")}>
                   <ClipboardPaste />
@@ -168,9 +132,6 @@ export default function DownloadPage() {
                 {t("submit", { count: new Set(links).size })}
               </button>
             </div>
-            {urlError && (
-              <p id="url-error" className="mt-1.5 text-sm text-destructive">{urlError}</p>
-            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-[auto_1fr_1fr] sm:items-end">
@@ -194,9 +155,9 @@ export default function DownloadPage() {
                 <div>
                   <label htmlFor="quality" className="label">{t("quality")}</label>
                   <select id="quality" className="input" value={opts.quality} onChange={(e) => set("quality", e.target.value as Options["quality"])}>
-                    {QUALITIES.map(([v, l]) => (
+                    {QUALITIES.map((v) => (
                       <option key={v} value={v}>
-                        {l ?? (v === "best" ? t("qualityBest") : t("quality2160"))}
+                        {v === "best" ? t("qualityBest") : v === "2160" ? t("quality2160") : `${v}p`}
                       </option>
                     ))}
                   </select>
@@ -219,6 +180,7 @@ export default function DownloadPage() {
                   <option value="m4a">M4A (AAC)</option>
                   <option value="opus">Opus</option>
                   <option value="flac">FLAC</option>
+                  <option value="wav">WAV</option>
                 </select>
               </div>
             )}

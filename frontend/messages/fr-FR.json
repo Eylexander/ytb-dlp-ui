@@ -41,7 +41,6 @@
     "pasteLabel": "Coller depuis le presse-papiers",
     "clipboardBlocked": "L’accès au presse-papiers est bloqué. Collez avec Ctrl+V.",
     "submit": "{count, plural, =0 {Télécharger} =1 {Télécharger} other {Télécharger #}}",
-    "invalidLinks": "Lien incomplet (doit commencer par https://) : {links}",
     "added": "{count, plural, =1 {Ajouté à la file d’attente} other {# téléchargements ajoutés à la file d’attente}}",
     "someFailed": "{count, plural, =1 {{error}} other {# liens ont échoué : {error}}}",
     "type": "Type",
@@ -109,7 +108,10 @@
     "deleted": "{count, plural, =1 {1 téléchargement supprimé} other {# téléchargements supprimés}}",
     "deleteFailed": "{count, plural, =1 {1 n’a pas pu être supprimé : {error}} other {# n’ont pas pu être supprimés : {error}}}",
     "restarted": "{count, plural, =1 {1 téléchargement relancé} other {# téléchargements relancés}}",
-    "restartFailed": "{count, plural, =1 {1 n’a pas pu être relancé : {error}} other {# n’ont pas pu être relancés : {error}}}"
+    "restartFailed": "{count, plural, =1 {1 n’a pas pu être relancé : {error}} other {# n’ont pas pu être relancés : {error}}}",
+    "saveChoose": "Choisir comment enregistrer les fichiers",
+    "saveSeparately": "Enregistrer {count} fichiers séparés",
+    "saveSeparatelyHint": "Enregistrement de {count} fichiers… Votre navigateur peut demander d’autoriser plusieurs téléchargements."
   },
   "Job": {
     "audio": "Audio",
@@ -135,7 +137,9 @@
     "confirmDeleteEntry": "Retirer cette entrée de l’historique ?",
     "closePlayer": "Fermer le lecteur",
     "cantPlay": "Votre navigateur ne peut pas lire ce fichier{ext, select, none {} other { ({ext})}}.",
-    "cantPlayHint": "Enregistrez-le et ouvrez-le dans un lecteur multimédia, ou téléchargez-le à nouveau en MP4."
+    "cantPlayHint": "Enregistrez-le et ouvrez-le dans un lecteur multimédia, ou téléchargez-le à nouveau en MP4.",
+    "kbps": "{n} kbit/s",
+    "converted": "converti"
   },
   "Status": {
     "queued": "En attente",
@@ -150,6 +154,14 @@
     "subtitle": "Outils du serveur et mises à jour de yt-dlp.",
     "language": "Langue",
     "languageHint": "Détectée depuis votre navigateur à la première visite. Enregistrée dans ce navigateur.",
+    "account": "Compte",
+    "accountHint": "Changer le nom d’utilisateur ou le mot de passe déconnecte tous les autres appareils.",
+    "username": "Nom d’utilisateur",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "newPasswordHint": "Laissez vide pour garder l’actuel. Au moins 8 caractères.",
+    "saveAccount": "Enregistrer le compte",
+    "accountSaved": "Compte mis à jour",
     "ytdlpHint": "Les sites changent souvent. Si les téléchargements échouent, mettre à jour yt-dlp règle généralement le problème.",
     "notInstalled": "non installé",
     "channel": "Canal de mise à jour",
@@ -192,13 +204,17 @@
     "not_found": "Téléchargement introuvable",
     "delete_failed": "La suppression a échoué : {detail}",
     "file_unavailable": "Ce fichier n’est pas disponible",
-    "file_gone": "Le fichier n’est plus sur le serveur",
     "nothing_to_save": "Aucun des téléchargements sélectionnés n’a de fichier à enregistrer",
     "no_thumbnail": "Pas de miniature",
     "invalid_channel": "Le canal doit être stable ou nightly",
     "update_running": "Une mise à jour est déjà en cours",
     "update_busy": "Attendez la fin des téléchargements en cours avant de mettre à jour yt-dlp",
-    "update_failed": "La mise à jour a échoué. Voir la sortie ci-dessous."
+    "update_failed": "La mise à jour a échoué. Voir la sortie ci-dessous.",
+    "wrong_password": "Votre mot de passe actuel est incorrect",
+    "invalid_username": "Le nom d’utilisateur doit faire de 1 à 64 caractères",
+    "password_too_short": "Le nouveau mot de passe doit faire au moins {min} caractères",
+    "account_save_failed": "L’enregistrement a échoué : {detail}",
+    "convert_source_missing": "Le fichier d’origine n’est plus disponible"
   },
   "JobErrors": {
     "invalid_url": "Ce lien ne semble pas valide.",
@@ -219,6 +235,27 @@
     "network": "Impossible de joindre le site. Vérifiez le lien et l’accès à Internet du serveur.",
     "interrupted": "Interrompu par un redémarrage du serveur. Relancez pour télécharger à nouveau.",
     "ytdlp_missing": "yt-dlp n’est pas installé sur le serveur.",
-    "generic": "Le téléchargement a échoué. Voir les détails ci-dessous."
+    "generic": "Le téléchargement a échoué. Voir les détails ci-dessous.",
+    "source_missing": "Le fichier d’origine a été supprimé avant le début de la conversion.",
+    "no_audio": "Ce fichier n’a pas de piste audio à convertir."
+  },
+  "Convert": {
+    "action": "Convertir",
+    "title": "Convertir en audio",
+    "close": "Fermer",
+    "format": "Format",
+    "mp3": "Lisible partout",
+    "m4a": "AAC, idéal sur Apple",
+    "opus": "Le plus léger à qualité égale",
+    "flac": "Sans perte, compressé",
+    "wav": "Sans perte, non compressé",
+    "bitrate": "Débit (kbit/s)",
+    "bitrateHint": "Plus c’est élevé, meilleur et plus lourd c’est. Au-delà de la qualité de la source, seul le poids augmente.",
+    "lossless": "Format sans perte : pas de débit à choisir, le fichier est bien plus lourd.",
+    "estimate": "Environ {size}",
+    "keepsOriginal": "L’original reste dans l’historique.",
+    "cancel": "Annuler",
+    "submit": "Convertir",
+    "started": "Conversion lancée"
   }
 }

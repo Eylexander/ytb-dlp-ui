@@ -19,8 +19,6 @@ services:
     container_name: ytdlp_backend
     restart: always
     environment:
-      - APP_USER=${APP_USER:-admin}
-      - APP_PASSWORD=${APP_PASSWORD:?Set APP_PASSWORD in .env}
       - SESSION_SECRET=${SESSION_SECRET}
       - MAX_CONCURRENT=${MAX_CONCURRENT:-2}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
@@ -29,8 +27,7 @@ services:
       - DATABASE_URL=postgres://ytdlp:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@ytdlp_database:5432/ytdlp?sslmode=disable
     volumes:
       - ytdlp_data:/data
-      # Seeded from the image on first start, then updated from the Settings page.
-      # Updates survive container recreation; remove the volume to reset to the image's version.
+      # Allows to save the yt-dlp updates
       - ytdlp_bin:/opt/yt-dlp
     depends_on:
       ytdlp_database:

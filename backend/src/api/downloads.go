@@ -5,7 +5,6 @@ import (
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -55,26 +54,22 @@ func (a *API) DeleteDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) DownloadFile(w http.ResponseWriter, r *http.Request) {
-	path, name, ok := a.ctrl.File(r.PathValue("id"))
-	if !ok {
+	files := a.ctrl.Files([]string{r.PathValue("id")})
+	if len(files) == 0 {
 		writeErr(w, http.StatusNotFound, models.UserErr("file_unavailable", "This file isn't available", nil))
 		return
 	}
-	if _, err := os.Stat(path); err != nil {
-		writeErr(w, http.StatusGone, models.UserErr("file_gone", "The file is no longer on the server", nil))
-		return
-	}
 	if r.URL.Query().Has("download") {
-		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": files[0].Name}))
 	}
-	http.ServeFile(w, r, path) // handles Range requests, so seeking works in the player
+	http.ServeFile(w, r, files[0].Path) // handles Range requests, so seeking works in the player
 }
 
 // Thumbnail serves the locally cached image, falling back to the original URL.
 func (a *API) Thumbnail(w http.ResponseWriter, r *http.Request) {
-	path, remote, ok := a.ctrl.Thumbnail(r.PathValue("id"))
+	path, remote := a.ctrl.Thumbnail(r.PathValue("id"))
 	switch {
-	case !ok:
+	case remote == "":
 		writeErr(w, http.StatusNotFound, models.UserErr("no_thumbnail", "No thumbnail", nil))
 	case path == "":
 		http.Redirect(w, r, remote, http.StatusFound)

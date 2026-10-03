@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Film, Layers, Loader2, Music, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Download, FileArchive, Files, Film, Layers, Loader2, Music, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import JobCard from "@/components/JobCard";
 import { useJobs } from "@/hooks/useJobs";
-import { api, archiveUrl, fileUrl, retryJob } from "@/lib/api-client";
+import { api, each, fileUrl, retryJob } from "@/lib/api-client";
 import { isActive, isAudioJob, type Job } from "@/types/download";
 
-// Second item: the label key in messages "History"
-const FILTERS: [string, "all" | "active" | "done" | "failed", (j: Job) => boolean][] = [
-  ["all", "all", () => true],
-  ["active", "active", isActive],
-  ["done", "done", (j) => j.status === "done"],
-  ["failed", "failed", (j) => j.status === "failed" || j.status === "canceled"],
+// The key is also the label key in messages "History"
+const FILTERS: ["all" | "active" | "done" | "failed", (j: Job) => boolean][] = [
+  ["all", () => true],
+  ["active", isActive],
+  ["done", (j) => j.status === "done"],
+  ["failed", (j) => j.status === "failed" || j.status === "canceled"],
 ];
 
 const TYPES = [
@@ -39,7 +39,7 @@ export default function HistoryPage() {
     !q || [j.title, j.uploader, j.url, j.file].some((s) => s?.toLowerCase().includes(q));
   const matchesType = TYPES.find(([k]) => k === type)![3];
   const searched = jobs?.filter((j) => matchesQuery(j) && matchesType(j)) ?? [];
-  const shown = searched.filter(FILTERS.find(([k]) => k === filter)![2]);
+  const shown = searched.filter(FILTERS.find(([k]) => k === filter)![1]);
   // Actions only apply to selected items that are currently visible, never to ones a filter hides.
   const selectedShown = shown.filter((j) => selected.has(j.id));
   const allSelected = shown.length > 0 && selectedShown.length === shown.length;
@@ -66,41 +66,23 @@ export default function HistoryPage() {
     const msg = t("confirmDelete", { count: n }) + (running ? `\n\n${t("confirmDeleteRunning", { count: running })}` : "");
     if (!confirm(msg)) return;
     setBusy("delete");
-    const failed = new Set<string>();
-    let firstError = "";
-    for (const j of selectedShown) {
-      try {
-        await api(`/downloads/${j.id}`, { method: "DELETE" });
-      } catch (err) {
-        failed.add(j.id);
-        firstError ||= (err as Error).message;
-      }
-    }
-    const done = n - failed.size;
+    const { failed, firstError } = await each(selectedShown, (j) => api(`/downloads/${j.id}`, { method: "DELETE" }));
+    const done = n - failed.length;
     if (done) toast.success(t("deleted", { count: done }));
-    if (failed.size) toast.error(t("deleteFailed", { count: failed.size, error: firstError }));
-    setSelected(failed); // keep what failed selected so it can be retried
+    if (failed.length) toast.error(t("deleteFailed", { count: failed.length, error: firstError }));
+    setSelected(new Set(failed.map((j) => j.id))); // keep what failed selected so it can be retried
     setBusy(null);
     refresh();
   }
 
   async function retrySelected() {
     setBusy("retry");
-    const failed = new Set<string>();
-    let firstError = "";
-    for (const j of retryableSelected) {
-      try {
-        await retryJob(j);
-      } catch (err) {
-        failed.add(j.id);
-        firstError ||= (err as Error).message;
-      }
-    }
-    const done = retryableSelected.length - failed.size;
+    const { failed, firstError } = await each(retryableSelected, retryJob);
+    const done = retryableSelected.length - failed.length;
     if (done) toast.success(t("restarted", { count: done }));
-    if (failed.size) toast.error(t("restartFailed", { count: failed.size, error: firstError }));
+    if (failed.length) toast.error(t("restartFailed", { count: failed.length, error: firstError }));
     // Retried entries are replaced by new jobs; keep the rest of the selection.
-    setSelected(new Set([...selected].filter((id) => failed.has(id) || !retryableSelected.some((j) => j.id === id))));
+    setSelected(new Set([...selected].filter((id) => !retryableSelected.some((j) => j.id === id && !failed.includes(j)))));
     setBusy(null);
     refresh();
   }
@@ -149,7 +131,7 @@ export default function HistoryPage() {
             ))}
           </div>
           <div role="tablist" aria-label={t("filterStatus")} className="flex w-full sm:w-auto self-start rounded-lg border border-border bg-muted/50 p-1">
-            {FILTERS.map(([key, label, pred]) => (
+            {FILTERS.map(([key, pred]) => (
               <button
                 key={key}
                 role="tab"
@@ -157,7 +139,7 @@ export default function HistoryPage() {
                 onClick={() => setFilter(key)}
                 className={`btn h-9 flex-1 sm:flex-none gap-1 sm:gap-2 px-1.5 sm:px-3 ${filter === key ? "bg-card text-foreground shadow-sm" : "btn-ghost"}`}
               >
-                {t(label)}
+                {t(key)}
                 <span className="text-xs text-muted-foreground tabular-nums">{searched.filter(pred).length}</span>
               </button>
             ))}
@@ -191,7 +173,7 @@ export default function HistoryPage() {
               {t("selectAll", { count: shown.length })}
             </label>
             {savableShown.length > 0 && (
-              <SaveLink jobs={savableShown} className="btn btn-ghost h-8 px-2 text-sm">
+              <SaveLink jobs={savableShown} className="btn btn-ghost h-8 px-2 text-sm" menuAt="below">
                 {t("downloadAll", { count: savableShown.length })}
               </SaveLink>
             )}
@@ -226,7 +208,7 @@ export default function HistoryPage() {
               </button>
             )}
             {savableSelected.length > 0 && (
-              <SaveLink jobs={savableSelected} className="btn btn-secondary h-9 px-2.5 sm:px-3">
+              <SaveLink jobs={savableSelected} className="btn btn-secondary h-9 px-2.5 sm:px-3" menuAt="above">
                 <span className="hidden sm:inline">{t("download")}</span> {savableSelected.length}
               </SaveLink>
             )}
@@ -247,21 +229,61 @@ export default function HistoryPage() {
   );
 }
 
-/** One file downloads as-is; several come as a single zip, so the browser doesn't block a burst of downloads. */
-function SaveLink({ jobs, className, children }: { jobs: Job[]; className: string; children: React.ReactNode }) {
+/** One file downloads as-is. Several open a menu: one zip, or each file on its own. */
+function SaveLink({ jobs, className, menuAt, children }: { jobs: Job[]; className: string; menuAt: "above" | "below"; children: React.ReactNode }) {
   const t = useTranslations("History");
-  const href = jobs.length === 1 ? fileUrl(jobs[0], true) : archiveUrl(jobs.map((j) => j.id));
-  const label = jobs.length > 1 ? t("saveZip", { count: jobs.length }) : t("saveFile");
+  const menu = useRef<HTMLDetailsElement>(null);
+
+  // Close the menu on a click outside it (a <details> only closes from its own summary).
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (menu.current && !menu.current.contains(e.target as Node)) menu.current.open = false;
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, []);
+
+  if (jobs.length === 1) {
+    return (
+      <a href={fileUrl(jobs[0], true)} download className={className} title={t("saveFile")} aria-label={t("saveFile")}>
+        <Download />
+        {children}
+      </a>
+    );
+  }
+
+  const close = () => menu.current && (menu.current.open = false);
+
+  // Browsers drop a burst of programmatic downloads, so they are spaced out; Chrome asks once
+  // whether the site may download several files.
+  async function saveSeparately() {
+    close();
+    toast(t("saveSeparatelyHint", { count: jobs.length }), { icon: "⬇️" });
+    for (const [i, j] of jobs.entries()) {
+      if (i) await new Promise((r) => setTimeout(r, 500));
+      const a = document.createElement("a");
+      a.href = fileUrl(j, true);
+      a.download = "";
+      a.click();
+    }
+  }
+
+  const item = "btn btn-ghost h-9 w-full justify-start px-3";
   return (
-    <a
-      href={href}
-      download
-      className={className}
-      title={label}
-      aria-label={label}
-    >
-      <Download />
-      {children}
-    </a>
+    <details ref={menu} className="relative" onKeyDown={(e) => e.key === "Escape" && close()}>
+      <summary className={`${className} list-none [&::-webkit-details-marker]:hidden cursor-pointer`} title={t("saveChoose")} aria-label={t("saveChoose")}>
+        <Download />
+        {children}
+        <ChevronDown className="opacity-60" />
+      </summary>
+      <div className={`absolute right-0 z-30 card min-w-max p-1 shadow-lg shadow-black/10 ${menuAt === "above" ? "bottom-full mb-2" : "top-full mt-1"}`}>
+        <a href={`/api/downloads/archive?ids=${jobs.map((j) => j.id).join(",")}`} download className={item} onClick={close}>
+          <FileArchive /> {t("saveZip", { count: jobs.length })}
+        </a>
+        <button type="button" className={item} onClick={saveSeparately}>
+          <Files /> {t("saveSeparately", { count: jobs.length })}
+        </button>
+      </div>
+    </details>
   );
 }

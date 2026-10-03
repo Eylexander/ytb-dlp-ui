@@ -1,4 +1,4 @@
 tmp
 data
-*_test.go
+test
 .env

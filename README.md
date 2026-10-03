@@ -18,17 +18,30 @@ Stack: a Go backend that runs yt-dlp and stores the history in PostgreSQL, and a
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
-Open http://localhost:3000 and log in as `admin` / `admin`. The Go backend reloads on save (air), and so does the UI (next dev). Downloaded files go to the `ytdlp_data_dev` volume. The history goes to PostgreSQL, reachable from the host at `localhost:5433` (user, password and database are all `ytdlp`).
+Open http://localhost:3000 and log in as `admin` with the password the backend printed on its first start (`docker compose -f docker/docker-compose.yml logs backend | grep "created the account"`). The Go backend reloads on save (air), and so does the UI (next dev). Downloaded files go to the `ytdlp_data_dev` volume. The history goes to PostgreSQL, reachable from the host at `localhost:5433` (user, password and database are all `ytdlp`).
 
 ## Production
 
 ```sh
 ./build.sh                                   # builds eylexander/ytdlp-ui-{backend,frontend}:latest
-cp docker/.env.prod.example docker/.env      # set APP_PASSWORD, POSTGRES_PASSWORD, SESSION_SECRET
+cp docker/.env.prod.example docker/.env      # set POSTGRES_PASSWORD, SESSION_SECRET
 docker compose -f docker/docker-compose.prod.yml up -d
 ```
 
-Open http://localhost. YouTube changes often. If downloads start failing with HTTP 403 or extraction errors, open **Settings → Update yt-dlp** (try the nightly channel if stable doesn't help). The updated binary is kept in the `ytdlp_bin` volume. To go back to the version in the image, remove that volume.
+On the first start the backend creates the account `admin` with a random password, printed once in its log:
+
+```sh
+docker compose -f docker/docker-compose.prod.yml logs ytdlp_backend | grep "created the account"
+```
+
+Open http://localhost, log in, and change the username and password in **Settings → Account**. Forgot the password? Delete the account row and restart; a new random password is printed:
+
+```sh
+docker compose -f docker/docker-compose.prod.yml exec ytdlp_database psql -U ytdlp -c 'DELETE FROM account'
+docker compose -f docker/docker-compose.prod.yml restart ytdlp_backend
+```
+
+ YouTube changes often. If downloads start failing with HTTP 403 or extraction errors, open **Settings → Update yt-dlp** (try the nightly channel if stable doesn't help). The updated binary is kept in the `ytdlp_bin` volume. To go back to the version in the image, remove that volume.
 
 ## CI/CD
 
@@ -42,8 +55,6 @@ Set the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets. Dependabo
 
 | Variable | Default | |
 |---|---|---|
-| `APP_PASSWORD` | (required) | Login password |
-| `APP_USER` | `admin` | Login username |
 | `SESSION_SECRET` | random | Signs session cookies. If unset, everyone is logged out on restart |
 | `MAX_CONCURRENT` | `2` | Downloads running at the same time; the rest wait in the queue |
 | `COOKIE_SECURE` | `false` | Set to `true` when served over HTTPS |
@@ -58,6 +69,6 @@ Set the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets. Dependabo
 Requires Go ≥ 1.24, Node ≥ 20, plus `yt-dlp` and `ffmpeg` on your PATH (and `deno` for full YouTube support). For the database, start only the dev PostgreSQL: `docker compose -f docker/docker-compose.yml up -d database`.
 
 ```sh
-cd backend && APP_PASSWORD=dev go run ./src/cmd     # API on :8080
+cd backend && go run ./src/cmd                      # API on :8080
 cd frontend && npm install && npm run dev           # UI on :3000, proxies /api to :8080
 ```

@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
+import ConvertButton from "@/components/ConvertButton";
 import { translateCode } from "@/i18n";
-import { api, fileUrl, retryJob, thumbnailUrl } from "@/lib/api-client";
+import { api, fileUrl, retryJob } from "@/lib/api-client";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { isActive, isAudioJob, type Job, type Status } from "@/types/download";
 
@@ -28,6 +29,7 @@ function optionsSummary(j: Job, t: ReturnType<typeof useTranslations<"Job">>) {
     o.mode === "audio"
       ? o.audioFormat === "best" ? t("bestQuality") : o.audioFormat.toUpperCase()
       : `${o.quality === "best" ? t("best") : `${o.quality}p`} · ${o.container.toUpperCase()}`;
+  if (o.convertFrom) return [format, o.audioBitrate && t("kbps", { n: o.audioBitrate }), t("converted")].filter(Boolean).join(" · ");
   return o.customArgs ? `${format} · ${t("customOptions")}` : format;
 }
 
@@ -110,7 +112,7 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
           // Served (and cached) by our backend, not the original site
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumbnailUrl(job)}
+            src={`/api/downloads/${job.id}/thumbnail`}
             alt=""
             referrerPolicy="no-referrer"
             loading="lazy"
@@ -143,7 +145,7 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold leading-snug line-clamp-2 break-words">{job.title || job.url}</h3>
             <p className="text-xs text-muted-foreground truncate">
-              {[job.uploader, optionsSummary(job, t), formatBytes(job.size, locale), new Date(job.createdAt).toLocaleString(locale)]
+              {[job.uploader, optionsSummary(job, t), formatBytes(job.size), new Date(job.createdAt).toLocaleString(locale)]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -176,7 +178,7 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
               {job.status === "running" &&
                 [
                   `${job.progress.toFixed(1)}%`,
-                  job.speed && `${formatBytes(job.speed, locale)}/s`,
+                  job.speed && `${formatBytes(job.speed)}/s`,
                   job.eta && t("left", { time: formatDuration(job.eta) }),
                 ]
                   .filter(Boolean)
@@ -208,6 +210,7 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
               <a className="btn btn-ghost h-8 px-2" href={fileUrl(job, true)} download title={t("saveTitle")}>
                 <Download /> <ActionLabel>{t("save")}</ActionLabel>
               </a>
+              <ConvertButton job={job} onChange={onChange} className="btn btn-ghost h-8 px-2" />
             </>
           )}
           {isActive(job) && (

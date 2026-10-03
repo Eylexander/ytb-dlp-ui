@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "react-hot-toast";
 import { IntlProvider } from "@/providers/IntlProvider";
-import { ThemeProvider } from "@/providers/ThemeProvider";
-import ToasterProvider from "@/providers/ToasterProvider";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -25,10 +25,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className="min-h-screen font-sans">
-        <ThemeProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <IntlProvider>
             {children}
-            <ToasterProvider />
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                className: "!bg-card !text-card-foreground !border !border-border !shadow-lg !text-sm",
+                error: { duration: 6000 },
+              }}
+            />
           </IntlProvider>
         </ThemeProvider>
       </body>

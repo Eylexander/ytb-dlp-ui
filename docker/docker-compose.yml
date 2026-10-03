@@ -30,8 +30,6 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - APP_USER=${APP_USER:-admin}
-      - APP_PASSWORD=${APP_PASSWORD:-admin}
       # Fixed in dev so air restarts don't log you out
       - SESSION_SECRET=${SESSION_SECRET:-dev-secret}
       - MAX_CONCURRENT=${MAX_CONCURRENT:-2}

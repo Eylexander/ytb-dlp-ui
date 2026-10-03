@@ -27,8 +27,6 @@ func main() {
 	maxConc, _ := strconv.Atoi(env("MAX_CONCURRENT", "2"))
 	cfg := &models.Config{
 		Addr:          env("ADDR", ":8080"),
-		User:          env("APP_USER", "admin"),
-		Password:      os.Getenv("APP_PASSWORD"),
 		DataDir:       env("DATA_DIR", "./data"),
 		DatabaseURL:   env("DATABASE_URL", "postgres://ytdlp:ytdlp@localhost:5433/ytdlp?sslmode=disable"),
 		YtDlp:         env("YTDLP_PATH", "yt-dlp"),
@@ -37,9 +35,6 @@ func main() {
 		SecureCookie:  os.Getenv("COOKIE_SECURE") == "true",
 		TrustProxy:    os.Getenv("TRUST_PROXY") == "true",
 	}
-	if cfg.Password == "" {
-		log.Fatal("APP_PASSWORD must be set")
-	}
 	if len(cfg.Secret) == 0 {
 		// Sessions won't survive a restart without SESSION_SECRET.
 		cfg.Secret = make([]byte, 32)
@@ -47,7 +42,7 @@ func main() {
 	}
 
 	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	db, err := datastore.NewPostgres(dbCtx, cfg.DatabaseURL)
+	db, err := datastore.NewPostgresDatastore(dbCtx, cfg.DatabaseURL)
 	cancel()
 	if err != nil {
 		log.Fatal(err)
@@ -67,7 +62,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	log.Printf("yt-dlp UI server listening on %s", cfg.Addr)
-	if err := server.NewServer(cfg, ctrl).Run(ctx, cfg.Addr); err != nil {
+	if err := server.Run(ctx, cfg, ctrl); err != nil {
 		log.Fatal(err)
 	}
 }

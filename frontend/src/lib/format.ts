@@ -3,10 +3,10 @@ import { getCurrentLocale } from "@/i18n";
 const UNITS = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
 
 /** "48.8 GB" in English, "48,8 Go" in French (Intl knows the local unit names). */
-export function formatBytes(n?: number, locale: string = getCurrentLocale()) {
+export function formatBytes(n?: number) {
   if (!n) return "";
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), UNITS.length - 1);
-  return new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat(getCurrentLocale(), {
     style: "unit",
     unit: UNITS[i],
     unitDisplay: "short",

@@ -81,7 +81,6 @@ var errorCodes = []struct{ match, code string }{
 	{"HTTP Error 404", "http_404"},
 	{"Requested format is not available", "format_unavailable"},
 	{"ffmpeg not found", "ffmpeg_missing"},
-	{"ffprobe and ffmpeg not found", "ffmpeg_missing"},
 	{"No space left on device", "disk_full"},
 	{"Unable to download webpage", "network"},
 	{"Name or service not known", "network"},

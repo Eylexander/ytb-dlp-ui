@@ -41,7 +41,6 @@
     "pasteLabel": "Paste from clipboard",
     "clipboardBlocked": "Clipboard access was blocked. Paste with Ctrl+V instead.",
     "submit": "{count, plural, =0 {Download} =1 {Download} other {Download #}}",
-    "invalidLinks": "Not a full link (should start with https://): {links}",
     "added": "{count, plural, =1 {Added to the queue} other {Added # downloads to the queue}}",
     "someFailed": "{count, plural, =1 {{error}} other {# links failed: {error}}}",
     "type": "Type",
@@ -109,7 +108,10 @@
     "deleted": "{count, plural, =1 {Deleted 1 download} other {Deleted # downloads}}",
     "deleteFailed": "{count, plural, =1 {1 couldn't be deleted: {error}} other {# couldn't be deleted: {error}}}",
     "restarted": "{count, plural, =1 {Restarted 1 download} other {Restarted # downloads}}",
-    "restartFailed": "{count, plural, =1 {1 couldn't be restarted: {error}} other {# couldn't be restarted: {error}}}"
+    "restartFailed": "{count, plural, =1 {1 couldn't be restarted: {error}} other {# couldn't be restarted: {error}}}",
+    "saveChoose": "Choose how to save the files",
+    "saveSeparately": "Save {count} separate files",
+    "saveSeparatelyHint": "Saving {count} files… Your browser may ask to allow multiple downloads."
   },
   "Job": {
     "audio": "Audio",
@@ -135,7 +137,9 @@
     "confirmDeleteEntry": "Remove this entry from history?",
     "closePlayer": "Close player",
     "cantPlay": "Your browser can't play this file{ext, select, none {} other { ({ext})}}.",
-    "cantPlayHint": "Save it and open it in a media player, or download it again as MP4."
+    "cantPlayHint": "Save it and open it in a media player, or download it again as MP4.",
+    "kbps": "{n} kbps",
+    "converted": "converted"
   },
   "Status": {
     "queued": "Queued",
@@ -150,6 +154,14 @@
     "subtitle": "Server tools and yt-dlp updates.",
     "language": "Language",
     "languageHint": "Detected from your browser on first visit. Saved in this browser.",
+    "account": "Account",
+    "accountHint": "Changing the username or password signs out every other device.",
+    "username": "Username",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "newPasswordHint": "Leave empty to keep the current one. At least 8 characters.",
+    "saveAccount": "Save account",
+    "accountSaved": "Account updated",
     "ytdlpHint": "Sites change often. If downloads start failing, updating yt-dlp usually fixes it.",
     "notInstalled": "not installed",
     "channel": "Update channel",
@@ -192,13 +204,17 @@
     "not_found": "Download not found",
     "delete_failed": "Deleting failed: {detail}",
     "file_unavailable": "This file isn't available",
-    "file_gone": "The file is no longer on the server",
     "nothing_to_save": "None of the selected downloads has a file to save",
     "no_thumbnail": "No thumbnail",
     "invalid_channel": "Channel must be stable or nightly",
     "update_running": "An update is already running",
     "update_busy": "Wait for the running downloads to finish before updating yt-dlp",
-    "update_failed": "The update failed. See the output below."
+    "update_failed": "The update failed. See the output below.",
+    "wrong_password": "Your current password is incorrect",
+    "invalid_username": "The username must be 1 to 64 characters",
+    "password_too_short": "The new password must be at least {min} characters",
+    "account_save_failed": "Saving failed: {detail}",
+    "convert_source_missing": "The original file isn't available anymore"
   },
   "JobErrors": {
     "invalid_url": "That doesn't look like a valid URL.",
@@ -219,6 +235,27 @@
     "network": "Couldn't reach the site. Check the link and the server's internet access.",
     "interrupted": "Interrupted by a server restart. Retry to download again.",
     "ytdlp_missing": "yt-dlp isn't installed on the server.",
-    "generic": "The download failed. See details below."
+    "generic": "The download failed. See details below.",
+    "source_missing": "The original file was deleted before the conversion started.",
+    "no_audio": "This file has no audio track to convert."
+  },
+  "Convert": {
+    "action": "Convert",
+    "title": "Convert to audio",
+    "close": "Close",
+    "format": "Format",
+    "mp3": "Plays everywhere",
+    "m4a": "AAC, great on Apple devices",
+    "opus": "Smallest at equal quality",
+    "flac": "Lossless, compressed",
+    "wav": "Lossless, uncompressed",
+    "bitrate": "Bitrate (kbps)",
+    "bitrateHint": "Higher is better but bigger. Above the source’s own quality, it only adds size.",
+    "lossless": "Lossless format: no bitrate to choose, the file is much larger.",
+    "estimate": "About {size}",
+    "keepsOriginal": "The original stays in your history.",
+    "cancel": "Cancel",
+    "submit": "Convert",
+    "started": "Conversion started"
   }
 }

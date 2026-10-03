@@ -57,23 +57,23 @@ func (c *Controller) cacheThumbnail(id, url string) error {
 }
 
 // Thumbnail returns the cached thumbnail, fetching it on first use (older jobs).
-// If caching fails, remote is the original URL to fall back to.
-func (c *Controller) Thumbnail(id string) (path, remote string, ok bool) {
+// remote is the original URL (empty if the job has none); path is empty if caching failed.
+func (c *Controller) Thumbnail(id string) (path, remote string) {
 	c.mu.Lock()
 	if j, found := c.jobs[id]; found {
 		remote = j.Thumbnail
 	}
 	c.mu.Unlock()
 	if remote == "" {
-		return "", "", false
+		return "", ""
 	}
 	path = c.thumbPath(id)
 	if _, err := os.Stat(path); err == nil {
-		return path, remote, true
+		return path, remote
 	}
 	if err := c.cacheThumbnail(id, remote); err != nil {
 		log.Printf("caching thumbnail %s: %v", id, err)
-		return "", remote, true
+		return "", remote
 	}
-	return path, remote, true
+	return path, remote
 }

@@ -11,13 +11,8 @@ import (
 	"eylexander/ytdlp-ui/backend/src/models"
 )
 
-type Server struct {
-	mux  *http.ServeMux
-	api  *api.API
-	ctrl *controller.Controller
-}
-
-func NewServer(cfg *models.Config, ctrl *controller.Controller) *Server {
+// Run serves until ctx is canceled, then stops running downloads before returning.
+func Run(ctx context.Context, cfg *models.Config, ctrl *controller.Controller) error {
 	// Minimal images ship without /etc/mime.types; the player needs correct types.
 	for ext, typ := range map[string]string{
 		".mp4": "video/mp4", ".m4v": "video/mp4", ".webm": "video/webm", ".mkv": "video/x-matroska",
@@ -26,38 +21,31 @@ func NewServer(cfg *models.Config, ctrl *controller.Controller) *Server {
 	} {
 		mime.AddExtensionType(ext, typ)
 	}
-	s := &Server{mux: http.NewServeMux(), api: api.NewAPI(cfg, ctrl), ctrl: ctrl}
-	s.registerRoutes()
-	return s
-}
 
-func (s *Server) registerRoutes() {
-	auth := func(h http.HandlerFunc) http.HandlerFunc { return RequireAuth(s.ctrl, h) }
+	a, mux := api.NewAPI(cfg, ctrl), http.NewServeMux()
+	auth := a.RequireAuth
+	mux.HandleFunc("POST /api/login", a.Login)
+	mux.HandleFunc("POST /api/logout", a.Logout)
+	mux.HandleFunc("GET /api/me", auth(a.Me))
+	mux.HandleFunc("PUT /api/account", auth(a.UpdateAccount))
+	mux.HandleFunc("GET /api/health", auth(a.Health))
+	mux.HandleFunc("POST /api/ytdlp/update", auth(a.UpdateYtDlp))
 
-	s.mux.HandleFunc("POST /api/login", s.api.Login)
-	s.mux.HandleFunc("POST /api/logout", s.api.Logout)
-	s.mux.HandleFunc("GET /api/me", auth(s.api.Me))
-	s.mux.HandleFunc("GET /api/health", auth(s.api.Health))
-	s.mux.HandleFunc("POST /api/ytdlp/update", auth(s.api.UpdateYtDlp))
+	mux.HandleFunc("GET /api/downloads", auth(a.ListDownloads))
+	mux.HandleFunc("POST /api/downloads", auth(a.CreateDownload))
+	mux.HandleFunc("POST /api/downloads/{id}/cancel", auth(a.CancelDownload))
+	mux.HandleFunc("DELETE /api/downloads/{id}", auth(a.DeleteDownload))
+	mux.HandleFunc("GET /api/downloads/archive", auth(a.DownloadArchive))
+	mux.HandleFunc("GET /api/downloads/{id}/file", auth(a.DownloadFile))
+	mux.HandleFunc("GET /api/downloads/{id}/thumbnail", auth(a.Thumbnail))
 
-	s.mux.HandleFunc("GET /api/downloads", auth(s.api.ListDownloads))
-	s.mux.HandleFunc("POST /api/downloads", auth(s.api.CreateDownload))
-	s.mux.HandleFunc("POST /api/downloads/{id}/cancel", auth(s.api.CancelDownload))
-	s.mux.HandleFunc("DELETE /api/downloads/{id}", auth(s.api.DeleteDownload))
-	s.mux.HandleFunc("GET /api/downloads/archive", auth(s.api.DownloadArchive))
-	s.mux.HandleFunc("GET /api/downloads/{id}/file", auth(s.api.DownloadFile))
-	s.mux.HandleFunc("GET /api/downloads/{id}/thumbnail", auth(s.api.Thumbnail))
+	mux.HandleFunc("/", api.NotFound)
 
-	s.mux.HandleFunc("/", api.NotFound)
-}
-
-// Run serves until ctx is canceled, then stops running downloads before returning.
-func (s *Server) Run(ctx context.Context, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: s.mux}
+	srv := &http.Server{Addr: cfg.Addr, Handler: mux}
 	go func() {
 		<-ctx.Done()
 		log.Print("shutting down")
-		s.ctrl.Shutdown()
+		ctrl.Shutdown()
 		srv.Close()
 	}()
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {

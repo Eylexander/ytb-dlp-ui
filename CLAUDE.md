@@ -6,20 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 # Dev stack in Docker (hot reload: air for Go, next dev for the UI)
-docker compose -f docker/docker-compose.yml up -d --build   # UI http://localhost:3000 (admin/admin), API :8080, PostgreSQL host port 5433
+docker compose -f docker/docker-compose.yml up -d --build   # UI http://localhost:3000 (first login: grep "created the account" in the backend log), API :8080, PostgreSQL host port 5433
 docker compose -f docker/docker-compose.yml logs -f backend
 docker compose -f docker/docker-compose.yml down
 
 # Images (same flags as the portfolio repo: -dev -frontend -backend -nc -push)
 ./build.sh
-docker compose -f docker/docker-compose.prod.yml up -d      # needs APP_PASSWORD + POSTGRES_PASSWORD in docker/.env (see .env.prod.example)
+docker compose -f docker/docker-compose.prod.yml up -d      # needs POSTGRES_PASSWORD in docker/.env (see .env.prod.example)
 
 # Backend without Docker, from backend/ (needs yt-dlp + ffmpeg on PATH, or YTDLP_PATH).
 # DATABASE_URL defaults to the dev compose Postgres on localhost:5433: `docker compose -f ../docker/docker-compose.yml up -d database`
-APP_PASSWORD=dev go run ./src/cmd
-go test ./...                                    # unit tests; the datastore test skips without a DB
-TEST_DATABASE_URL=postgres://ytdlp:ytdlp@localhost:5433/ytdlp?sslmode=disable go test ./src/datastore
-go test ./src/controller -run TestBuildArgs      # single test
+go run ./src/cmd
+go test ./...                                    # all tests live in backend/test/; TestRoundTrip skips without a DB
+TEST_DATABASE_URL=postgres://ytdlp:ytdlp@localhost:5433/ytdlp?sslmode=disable go test ./test
+go test ./test -run TestBuildArgs                # single test
 go vet ./... && gofmt -l .
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...   # same version as CI; config in backend/.golangci.yml
 
@@ -41,7 +41,7 @@ Both compose files set an explicit `name:`. Keep it: the default project name wo
 
 ## Layout
 
-The layout mirrors github.com/Eylexander/portfolio: `backend/src/{cmd,api,controller,datastore,models,server}`, `backend/.air.toml`, `frontend/src/{app,components,hooks,lib,providers,types}`, and `docker/` holding `{backend,frontend}{,.dev}.Dockerfile`, a dev `docker-compose.yml`, a `docker-compose.prod.yml`, and `nginx.conf`. Each Dockerfile's build context is its own folder (`./backend` or `./frontend`).
+The layout mirrors github.com/Eylexander/portfolio: `backend/src/{cmd,api,controller,datastore,models,server}`, tests in `backend/test/` (package `test`, exported API only), `backend/.air.toml`, `frontend/src/{app,components,hooks,lib,providers,types}`, and `docker/` holding `{backend,frontend}{,.dev}.Dockerfile`, a dev `docker-compose.yml`, a `docker-compose.prod.yml`, and `nginx.conf`. Each Dockerfile's build context is its own folder (`./backend` or `./frontend`).
 
 ## Architecture
 
@@ -49,15 +49,15 @@ There is no Node at runtime. `next build` emits a static site (`output: "export"
 
 **Backend (`backend/src/`, module `eylexander/ytdlp-ui/backend`)**
 - `cmd/main.go`: reads the env config into `models.Config` and handles SIGINT/SIGTERM.
-- `server/`: routes (Go 1.22 `METHOD /path/{id}` mux patterns) and the `RequireAuth` middleware. `Server.Run` calls `ctrl.Shutdown()` on exit.
-- `api/`: thin HTTP handlers. Errors go out as `{"error": "..."}` and the UI shows that message verbatim, so write it for end users.
+- `server/`: `server.Run` registers the routes (Go 1.22 `METHOD /path/{id}` mux patterns) and calls `ctrl.Shutdown()` on exit.
+- `api/`: thin HTTP handlers, plus the `RequireAuth` middleware. Errors go out as `{"error": "..."}` and the UI shows that message verbatim, so write it for end users.
 - `controller/`: all logic.
   - `controller.go`: the job manager.
   - `ytdlp.go`: `BuildArgs`, plus `ClassifyError`, which maps yt-dlp stderr to friendly messages through the `friendlyErrors` table (first match wins, so order matters).
   - `ytdlp.go` also holds `UpdateYtDlp`: `yt-dlp --update-to stable|nightly`, refused while downloads run. `YtDlpVersion` is cached because the one-file binary takes ~2s per run, and an update clears the cache.
   - `thumbnails.go`: copies each job's remote thumbnail to `DATA_DIR/thumbnails/<id>`, prefetched when metadata arrives and fetched on first request for older jobs. Served with immutable cache headers, so the browser never contacts the original site's image servers.
-  - `auth.go`: a single account from `APP_USER`/`APP_PASSWORD`, a stateless HMAC token in a cookie, and a per-IP login lockout. `TRUST_PROXY=true` makes it key on `X-Real-IP`; that variable is set only in the prod compose, where the backend is reachable only through nginx.
-- `datastore/`: PostgreSQL through pgx (the only non-stdlib dependency). There is one `downloads` table, created with `CREATE TABLE IF NOT EXISTS` on startup (no migration tool). `options` is JSONB, so a new download option needs no schema change. Speed and ETA are never stored.
+  - `auth.go`: a single account in the `account` table (one row, PBKDF2 hash from stdlib `crypto/pbkdf2`). The first start creates `admin` with a random password printed once to the log (`rand.Text()`); the login is then changed in Settings (`PUT /api/account`, needs the current password). Sessions are stateless HMAC tokens in a cookie. The signature covers the password hash and the token's username must match, so changing either logs out every other session. There is also a per-IP login lockout. `TRUST_PROXY=true` makes it key on `X-Real-IP`; that variable is set only in the prod compose, where the backend is reachable only through nginx.
+- `datastore/`: portfolio layout: `datastore.go` is the `DataStore` interface, `datastore_postgres.go` the pgx connection and schema, `datastore_postgres_<entity>.go` the queries. pgx is the only non-stdlib dependency. Tests build a `Controller` on a no-op `DataStore`. There is one `downloads` table, created with `CREATE TABLE IF NOT EXISTS` on startup (no migration tool). `options` is JSONB, so a new download option needs no schema change. Speed and ETA are never stored.
 - `models/`: `Job`, `Options` (with `Normalize()` doing **allowlist validation**), `Config`, and `args.go` (the custom options allowlist).
 
 **Storage model:** the controller keeps every job in memory and serves `GET /api/downloads` and live progress from there. PostgreSQL is the durable copy. It is loaded once at startup and upserted one row at a time on state changes (`saveLocked`, under the controller mutex so writes for a job stay ordered), but not on progress ticks. Each job's files live in `DATA_DIR/downloads/<jobID>/`, so deleting a job means removing the row first, then `RemoveAll` on that folder.
@@ -76,7 +76,9 @@ There is no Node at runtime. `next build` emits a static site (`output: "export"
 
 **Self-updating yt-dlp:** both images install the standalone binary at `/opt/yt-dlp/yt-dlp` (`YTDLP_PATH`), owned by the app user so `--update-to` can replace it. The prod compose keeps `/opt/yt-dlp` on the `ytdlp_bin` volume, so an update survives container recreation. The catch: a newer image won't replace the binary until that volume is removed. Self-update doesn't work for pip installs, and yt-dlp's error is shown to the user.
 
-**Bulk actions (History):** multi-select applies only to visible (filtered) cards. Delete and retry loop over the single-item endpoints from the client. "Download" is a plain link: one file goes to `/api/downloads/{id}/file?download=1`, several go to `GET /api/downloads/archive?ids=a,b,c`, which streams an uncompressed zip (`controller.WriteZip`, deduplicated names) straight to the response.
+**Bulk actions (History):** multi-select applies only to visible (filtered) cards. Delete and retry loop over the single-item endpoints from the client. "Download" is a plain link for one file (`/api/downloads/{id}/file?download=1`). For several it opens a menu: one zip (`GET /api/downloads/archive?ids=a,b,c`, which streams an uncompressed zip via `controller.WriteZip`, with deduplicated names) or separate files (client-side anchor clicks spaced 500ms apart; Chrome asks once to allow multiple downloads).
+
+**Audio conversion:** "Convert" on a finished job (`components/ConvertButton.tsx`) is a normal `POST /api/downloads` whose options carry `convertFrom: <jobID>`, `audioFormat` and `audioBitrate`. `run()` then starts ffmpeg (`controller/convert.go`: `ConvertArgs`, with progress parsed from `-progress pipe:1`) on that job's file instead of yt-dlp. The new job copies the source's title, thumbnail (hard link) and duration. It goes through the same lifecycle, queue and cancel, and retry works unchanged. The source job is left untouched.
 
 **Dev-stack caveat:** air restarts the backend on every Go save, and a restart turns all queued or running downloads into "Interrupted by a server restart" failures. The dev stack is also used for real downloads, so when testing against it, create and act on your own test jobs only. Never use select-all or other bulk actions over existing history.
 

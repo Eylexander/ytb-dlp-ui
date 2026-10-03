@@ -1,4 +1,4 @@
-package datastore
+package test
 
 import (
 	"context"
@@ -6,18 +6,19 @@ import (
 	"testing"
 	"time"
 
+	"eylexander/ytdlp-ui/backend/src/datastore"
 	"eylexander/ytdlp-ui/backend/src/models"
 )
 
 // Needs a real PostgreSQL, e.g. the dev compose one:
-// TEST_DATABASE_URL=postgres://ytdlp:ytdlp@localhost:5433/ytdlp?sslmode=disable go test ./src/datastore
+// TEST_DATABASE_URL=postgres://ytdlp:ytdlp@localhost:5433/ytdlp?sslmode=disable go test ./test -run TestRoundTrip
 func TestRoundTrip(t *testing.T) {
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
 		t.Skip("TEST_DATABASE_URL not set")
 	}
 	ctx := context.Background()
-	db, err := NewPostgres(ctx, url)
+	db, err := datastore.NewPostgresDatastore(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,8 +49,8 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-func find(t *testing.T, db *Postgres, id string) *models.Job {
-	jobs, err := db.LoadDownloads(context.Background())
+func find(t *testing.T, db datastore.DataStore, id string) *models.Job {
+	jobs, err := db.GetDownloads(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

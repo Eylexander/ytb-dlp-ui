@@ -2,7 +2,7 @@ export type Options = {
   mode: "video" | "audio";
   quality: "best" | "2160" | "1440" | "1080" | "720" | "480" | "360";
   container: "mp4" | "mkv" | "webm";
-  audioFormat: "best" | "mp3" | "m4a" | "opus" | "flac";
+  audioFormat: "best" | "mp3" | "m4a" | "opus" | "flac" | "wav";
   subtitles: boolean;
   subLangs: string;
   embedThumbnail: boolean;
@@ -10,7 +10,13 @@ export type Options = {
   sponsorBlock: boolean;
   /** Extra yt-dlp options, checked server-side against an allowlist */
   customArgs?: string;
+  /** Set on conversions: the job whose file ffmpeg converted to audio */
+  convertFrom?: string;
+  /** kbps, lossy conversions only */
+  audioBitrate?: (typeof BITRATES)[number];
 };
+
+export const BITRATES = ["96", "128", "192", "256", "320"] as const;
 
 export type Status = "queued" | "running" | "processing" | "done" | "failed" | "canceled";
 
