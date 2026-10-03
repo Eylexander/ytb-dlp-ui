@@ -1,0 +1,30 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o tmp/main ./src/cmd"
+bin = "tmp/main"
+include_ext = ["go"]
+exclude_dir = ["tmp", "data", "vendor"]
+exclude_regex = ["_test\\.go"]
+delay = 1000 # ms
+stop_on_error = true
+# SIGINT first so the server kills running yt-dlp processes before restarting
+send_interrupt = true
+kill_delay = "3s"
+
+[log]
+time = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true

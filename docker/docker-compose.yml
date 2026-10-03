@@ -1,0 +1,64 @@
+# Explicit name: the default (folder name "docker") collides with other projects using the same layout
+name: ytdlp-ui-dev
+
+services:
+  frontend:
+    container_name: ytdlp_frontend_dev
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend.dev.Dockerfile
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://backend:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    container_name: ytdlp_backend_dev
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend.dev.Dockerfile
+    volumes:
+      - ../backend:/go/src
+      - ytdlp_data_dev:/data
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_USER=${APP_USER:-admin}
+      - APP_PASSWORD=${APP_PASSWORD:-admin}
+      # Fixed in dev so air restarts don't log you out
+      - SESSION_SECRET=${SESSION_SECRET:-dev-secret}
+      - MAX_CONCURRENT=${MAX_CONCURRENT:-2}
+      - DATA_DIR=/data
+      - DATABASE_URL=postgres://ytdlp:ytdlp@database:5432/ytdlp?sslmode=disable
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:18-alpine
+    container_name: ytdlp_postgres_dev
+    environment:
+      - POSTGRES_USER=ytdlp
+      - POSTGRES_PASSWORD=ytdlp
+      - POSTGRES_DB=ytdlp
+    ports:
+      # 5433 on the host: 5432 is often taken by another local Postgres
+      - "5433:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ytdlp -d ytdlp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ytdlp_data_dev:
+  postgres_data_dev:

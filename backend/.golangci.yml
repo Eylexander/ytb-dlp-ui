@@ -1,0 +1,20 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Best-effort cleanup and response writes whose error has nowhere useful to go.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*net/http.Server).Close
+        - (net/http.ResponseWriter).Write
+        - (*encoding/json.Encoder).Encode
+        - os.Remove
+        - os.RemoveAll
+        - mime.AddExtensionType
+  exclusions:
+    rules:
+      # Error strings are shown to end users verbatim (api.writeErr), so they're written as sentences.
+      - linters: [staticcheck]
+        text: "ST1005"

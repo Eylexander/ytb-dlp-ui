@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Paper-light / obsidian-dark tokens from eylexander.fr, with its purple primary. */
+  :root {
+    --background: 40 40% 96%;
+    --foreground: 220 15% 15%;
+    --primary: 262 52% 54%;
+    --primary-foreground: 0 0% 99%;
+    --secondary: 40 30% 92%;
+    --secondary-foreground: 220 15% 25%;
+    --muted: 40 25% 90%;
+    --muted-foreground: 220 10% 42%;
+    --card: 40 33% 98%;
+    --card-foreground: 220 15% 15%;
+    --accent: 40 30% 92%;
+    --accent-foreground: 220 15% 25%;
+    --border: 40 20% 86%;
+    --input: 40 20% 86%;
+    --ring: 262 52% 54%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 152 60% 36%;
+    /* Media type badges */
+    --video: 211 85% 45%;
+    --audio: 28 90% 45%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 228 15% 9%;
+    --foreground: 210 20% 98%;
+    --primary: 262 70% 68%;
+    --primary-foreground: 228 15% 9%;
+    --secondary: 228 14% 13%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 228 12% 16%;
+    --muted-foreground: 220 15% 65%;
+    --card: 228 14% 11%;
+    --card-foreground: 210 20% 98%;
+    --accent: 228 14% 15%;
+    --accent-foreground: 210 20% 98%;
+    --border: 228 14% 18%;
+    --input: 228 14% 18%;
+    --ring: 262 70% 68%;
+    --destructive: 0 68% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 152 55% 50%;
+    --video: 211 90% 62%;
+    --audio: 32 95% 58%;
+  }
+
+  html {
+    scrollbar-gutter: stable;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  ::selection {
+    @apply bg-primary/25 text-foreground;
+  }
+
+  /* iOS zooms into inputs under 16px */
+  @media (max-width: 640px) {
+    input,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  .input {
+    @apply w-full h-11 px-4 rounded-lg border border-input bg-card text-foreground placeholder:text-muted-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary disabled:opacity-50;
+  }
+
+  .label {
+    @apply block text-sm font-medium mb-1.5;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:shrink-0;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20;
+  }
+  .btn-secondary {
+    @apply bg-card text-foreground border border-border hover:bg-accent;
+  }
+  .btn-ghost {
+    @apply text-muted-foreground hover:bg-accent hover:text-foreground;
+  }
+  .btn-icon {
+    @apply btn btn-ghost w-9 h-9 px-0;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(300 60% 62%) 100%);
+  }
+}

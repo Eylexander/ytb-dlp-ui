@@ -1,0 +1,67 @@
+name: ytdlp-ui
+
+services:
+  ytdlp_frontend:
+    image: eylexander/ytdlp-ui-frontend:latest
+    container_name: ytdlp_frontend
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - ytdlp_backend
+    networks:
+      - ytdlp_network
+
+  ytdlp_backend:
+    image: eylexander/ytdlp-ui-backend:latest
+    container_name: ytdlp_backend
+    restart: always
+    environment:
+      - APP_USER=${APP_USER:-admin}
+      - APP_PASSWORD=${APP_PASSWORD:?Set APP_PASSWORD in .env}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - MAX_CONCURRENT=${MAX_CONCURRENT:-2}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      # Only reachable through nginx, so its X-Real-IP header can be trusted
+      - TRUST_PROXY=true
+      - DATABASE_URL=postgres://ytdlp:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@ytdlp_database:5432/ytdlp?sslmode=disable
+    volumes:
+      - ytdlp_data:/data
+      # Seeded from the image on first start, then updated from the Settings page.
+      # Updates survive container recreation; remove the volume to reset to the image's version.
+      - ytdlp_bin:/opt/yt-dlp
+    depends_on:
+      ytdlp_database:
+        condition: service_healthy
+    networks:
+      - ytdlp_network
+
+  ytdlp_database:
+    image: postgres:18-alpine
+    container_name: ytdlp_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=ytdlp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=ytdlp
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - ytdlp_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ytdlp -d ytdlp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  ytdlp_data:
+  ytdlp_bin:
+  postgres_data:
+
+networks:
+  ytdlp_network:
+    driver: bridge
