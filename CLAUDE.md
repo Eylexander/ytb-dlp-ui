@@ -33,8 +33,8 @@ npm run check:i18n # en-US/fr-FR have the same keys and {placeholders}
 There is no frontend linter besides `tsc`, and no frontend tests.
 
 **CI/CD (`.github/`, same setup as the author's BlurayManager repo):**
-- `ci.yml` runs on PRs and on pushes to branches other than `master`: gofmt, vet, `go test -race` against a PostgreSQL service container (so the datastore test runs), golangci-lint, then frontend typecheck and build.
-- `docker-publish.yml` runs on pushes to `master`. It calls `ci.yml` first, then builds and pushes `eylexander/ytdlp-ui-{backend,frontend}:latest` and `:<sha>` to Docker Hub, only for the side whose files changed (`dorny/paths-filter`). It needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repo secrets.
+- `ci.yml` runs on PRs and on pushes to branches other than `main`: gofmt, vet, `go test -race` against a PostgreSQL service container (so the datastore test runs), golangci-lint, then frontend typecheck and build.
+- `docker-publish.yml` runs on pushes to `main`. It calls `ci.yml` first, then builds and pushes `eylexander/ytdlp-ui-{backend,frontend}:latest` and `:<sha>` to Docker Hub, only for the side whose files changed (`dorny/paths-filter`). It needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repo secrets.
 - Keep the golangci-lint version in sync between CI and the command above. `.golangci.yml` deliberately excludes ST1005: error strings are user-facing sentences.
 
 Both compose files set an explicit `name:`. Keep it: the default project name would be the folder name `docker`, which collides with the author's other repos that use the same layout. Compose would then replace their `frontend`/`backend` containers.
