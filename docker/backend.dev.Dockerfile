@@ -4,7 +4,7 @@
 # build-env #
 #############
 
-FROM cosmtrek/air:v1.64.5
+FROM cosmtrek/air:v1.67.4
 
 ARG TARGETARCH
 
