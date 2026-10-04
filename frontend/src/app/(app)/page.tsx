@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ClipboardPaste, Download, Film, Loader2, Music, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -33,6 +33,24 @@ export default function DownloadPage() {
   const [url, setUrl] = useState("");
   const [opts, setOpts] = useState<Options>(DEFAULTS);
   const [submitting, setSubmitting] = useState(false);
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // Grow the link box with its content, wrapped lines included (rows only counted newlines,
+  // so long links and the placeholder were cut off on narrow screens).
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const fit = () => {
+      const empty = !el.value;
+      if (empty) el.value = el.placeholder; // measure the placeholder like text
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight + 2}px`; // + top/bottom border
+      if (empty) el.value = "";
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [url]);
 
   // Remember the last used options in this browser.
   useEffect(() => {
@@ -106,8 +124,9 @@ export default function DownloadPage() {
               <div className="relative flex-1">
                 <textarea
                   id="url"
-                  rows={Math.min(Math.max(url.split("\n").length, 1), 8)}
-                  className="input h-auto min-h-12 py-3 pr-12 resize-none leading-6"
+                  ref={box}
+                  rows={1}
+                  className="input h-auto min-h-12 max-h-56 py-3 pr-12 resize-none leading-6"
                   placeholder={t("linksPlaceholder")}
                   inputMode="url"
                   autoComplete="off"
