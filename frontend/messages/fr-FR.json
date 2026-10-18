@@ -141,7 +141,8 @@
     "kbps": "{n} kbit/s",
     "converted": "converti",
     "cut": "extrait {from}–{to}",
-    "cutEnd": "fin"
+    "cutEnd": "fin",
+    "openSource": "Ouvrir la page d’origine"
   },
   "Status": {
     "queued": "En attente",
@@ -149,7 +150,9 @@
     "processing": "Traitement",
     "done": "Terminé",
     "failed": "Échec",
-    "canceled": "Annulé"
+    "canceled": "Annulé",
+    "cutting": "Découpe",
+    "converting": "Conversion"
   },
   "Settings": {
     "title": "Paramètres",
@@ -286,10 +289,18 @@
     "length": "Durée {time}",
     "output": "Enregistrer en",
     "video": "Vidéo ({container})",
-    "precise": "Réencodé, pour que la coupe tombe exactement sur l’image choisie. L’original reste dans l’historique.",
     "keys": "Espace : lecture/pause · ←/→ : 0,1 s (Maj : 1 s) · I/O : début/fin ici",
     "cantPlay": "Votre navigateur ne peut pas prévisualiser ce fichier, mais vous pouvez saisir les temps.",
     "submit": "Couper",
-    "started": "Découpe lancée"
+    "started": "Découpe lancée",
+    "source": "Original",
+    "sourceTitle": "Ouvrir la page d’origine dans un nouvel onglet, pour repérer votre passage",
+    "exact": "Image exacte (réencodage, plus lent)",
+    "fastHint": "Instantané : les flux sont copiés, donc l’extrait commence sur l’image clé juste avant le début (jusqu’à quelques secondes plus tôt).",
+    "exactHint": "Réencodé, pour que la coupe tombe exactement sur l’image choisie. Peut prendre aussi longtemps que l’extrait.",
+    "keepOriginal": "L’original reste dans l’historique.",
+    "fromSource": "Vidéo d’origine affichée : le nouvel extrait y est recoupé, pour que l’audio ne soit pas encodé deux fois. Les deux restent dans l’historique.",
+    "youtube": "Afficher la vidéo YouTube",
+    "youtubeHint": "Charge le lecteur YouTube, sans le son. Il suit votre tête de lecture."
   }
 }

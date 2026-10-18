@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, Pause, Play, Repeat, Scissors, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, Film, Loader2, Pause, Play, Repeat, Scissors, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import { api, fileUrl } from "@/lib/api-client";
@@ -15,12 +15,25 @@ const STEPS = [-1, -0.1, 0.1, 1] as const;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 const round = (v: number) => Math.round(v * 100) / 100; // what the time fields can show
+const YT = "https://www.youtube-nocookie.com";
+const youtubeId = (url: string) => url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/)?.[1];
 
 /** "Cut" action of a finished job: pick a range on a timeline, ffmpeg re-encodes it on the server as a new job. */
 export default function CutButton({ job, onChange, className }: { job: Job; onChange: () => void; className: string }) {
   const t = useTranslations("Cutter");
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+  const [source, setSource] = useState<Job>();
+
+  async function show() {
+    // An audio made from a video is re-cut from that video while it's still there:
+    // you see the picture, and the audio isn't encoded twice.
+    const id = isAudioJob(job) && job.options.convertFrom;
+    const src = id ? (await api<Job[]>("/downloads").catch(() => [])).find((j) => j.id === id && j.status === "done") : undefined;
+    setSource(src && !isAudioJob(src) ? src : undefined);
+    setOpen(true);
+    dialog.current?.showModal();
+  }
 
   function close() {
     setOpen(false); // unmounts the media element, which stops playback
@@ -31,10 +44,7 @@ export default function CutButton({ job, onChange, className }: { job: Job; onCh
     <>
       <button
         className={className}
-        onClick={() => {
-          setOpen(true);
-          dialog.current?.showModal();
-        }}
+        onClick={show}
         title={t("title")}
       >
         <Scissors /> <span className="sr-only sm:not-sr-only">{t("action")}</span>
@@ -50,17 +60,21 @@ export default function CutButton({ job, onChange, className }: { job: Job; onCh
           <h2 className="flex-1 truncate font-semibold text-sm">
             {t("title")} · <span className="font-normal text-muted-foreground">{job.title || job.file}</span>
           </h2>
+          <a className="btn btn-ghost h-8 px-2 text-sm" href={job.url} target="_blank" rel="noreferrer" title={t("sourceTitle")}>
+            <ExternalLink /> <span className="sr-only sm:not-sr-only">{t("source")}</span>
+          </a>
           <button type="button" className="btn-icon" onClick={close} aria-label={t("close")} title={t("close")}>
             <X />
           </button>
         </div>
-        {open && <Cutter job={job} onDone={() => (close(), onChange())} onCancel={close} />}
+        {open && <Cutter job={source ?? job} from={source && job} onDone={() => (close(), onChange())} onCancel={close} />}
       </dialog>
     </>
   );
 }
 
-function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCancel: () => void }) {
+/** Cuts job; from (an audio converted from job) presets the range and format. */
+function Cutter({ job, from, onDone, onCancel }: { job: Job; from?: Job; onDone: () => void; onCancel: () => void }) {
   const t = useTranslations("Cutter");
   const media = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const bar = useRef<HTMLDivElement>(null);
@@ -70,14 +84,25 @@ function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCan
   const isAudio = isAudioJob(job);
   const ext = job.file?.split(".").pop()?.toLowerCase();
   const container = ext === "mkv" ? "mkv" : "mp4";
-  const [output, setOutput] = useState<Output>(isAudio ? (AUDIO.find(([f]) => f === ext)?.[0] ?? "mp3") : "video");
+  const preset = from ? from.options.audioFormat : ext;
+  const [output, setOutput] = useState<Output>(isAudio || from ? (AUDIO.find(([f]) => f === preset)?.[0] ?? "mp3") : "video");
   const [dur, setDur] = useState(job.duration ?? 0);
-  const [start, setStart] = useState(0);
-  const [end, setEnd] = useState(job.duration ?? 0);
+  const [start, setStart] = useState(from?.options.start ?? 0);
+  const [end, setEnd] = useState(from?.options.end || job.duration || 0);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playError, setPlayError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [exact, setExact] = useState(false); // video: re-encode for a frame-exact start (slow)
+
+  // Audio-only downloads: the YouTube player (on request, muted) follows the cutter's playhead.
+  const ytId = isAudio ? youtubeId(job.url) : undefined;
+  const yt = useRef<HTMLIFrameElement>(null);
+  const [ytSrc, setYtSrc] = useState<string>();
+  // ponytail: where this audio starts in the video; a cut of a cut is off by the first cut's start
+  const offset = job.options.start ?? 0;
+  const ytCmd = (func: string, args: unknown[] = []) =>
+    yt.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT);
 
   const moveStart = (v: number) => {
     const s = clamp(round(v), 0, Math.max(0, end - MIN));
@@ -92,6 +117,7 @@ function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCan
   function seek(v: number) {
     const s = clamp(v, 0, dur);
     if (media.current) media.current.currentTime = s;
+    ytCmd("seekTo", [s + offset, true]);
     setTime(s);
     return s;
   }
@@ -177,7 +203,7 @@ function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCan
     setBusy(true);
     try {
       const range = { start: start || undefined, end: toEnd ? undefined : end, convertFrom: job.id };
-      const options: Partial<Options> = output === "video" ? { mode: "video", container, ...range } : { mode: "audio", audioFormat: output, ...range };
+      const options: Partial<Options> = output === "video" ? { mode: "video", container, copy: !exact, ...range } : { mode: "audio", audioFormat: output, ...range };
       await api("/downloads", { json: { url: job.url, options } });
       toast.success(t("started"));
       onDone();
@@ -200,15 +226,41 @@ function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCan
         setEnd((e) => (e <= 0 || e > d || e === job.duration ? d : e));
       }
     },
-    onPlay: () => setPlaying(true),
-    onPause: () => setPlaying(false),
+    onPlay: () => {
+      setPlaying(true);
+      ytCmd("seekTo", [media.current!.currentTime + offset, true]);
+      ytCmd("playVideo");
+    },
+    onPause: () => {
+      setPlaying(false);
+      ytCmd("pauseVideo");
+    },
     onError: () => setPlayError(true),
   };
 
   return (
     <form onSubmit={submit} onKeyDown={onKeyDown}>
       {isAudio ? (
-        <audio {...mediaProps} />
+        <>
+          <audio {...mediaProps} />
+          {ytId &&
+            (ytSrc ? (
+              <iframe ref={yt} src={ytSrc} title={t("youtube")} allow="autoplay; encrypted-media" className="w-full aspect-video max-h-[50vh] bg-black" />
+            ) : (
+              <div className="px-4 pt-4">
+                <button
+                  type="button"
+                  className="btn btn-secondary h-9 px-3"
+                  title={t("youtubeHint")}
+                  onClick={() =>
+                    setYtSrc(`${YT}/embed/${ytId}?enablejsapi=1&mute=1&playsinline=1&start=${Math.floor(time + offset)}&origin=${location.origin}`)
+                  }
+                >
+                  <Film /> {t("youtube")}
+                </button>
+              </div>
+            ))}
+        </>
       ) : (
         <video {...mediaProps} playsInline onClick={toggle} className={`w-full max-h-[50vh] bg-black cursor-pointer ${playError ? "hidden" : ""}`} />
       )}
@@ -300,7 +352,17 @@ function Cutter({ job, onDone, onCancel }: { job: Job; onDone: () => void; onCan
           <p className="pb-2 text-sm font-medium tabular-nums">{t("length", { time: formatTimestamp(end - start) })}</p>
         </div>
 
-        <p className="text-xs text-muted-foreground">{t("precise")}</p>
+        {output === "video" ? (
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={exact} onChange={(e) => setExact(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[hsl(var(--primary))]" />
+            <span>
+              {t("exact")}
+              <span className="block text-xs text-muted-foreground">{t(exact ? "exactHint" : "fastHint")}</span>
+            </span>
+          </label>
+        ) : (
+          <p className="text-xs text-muted-foreground">{t(from ? "fromSource" : "keepOriginal")}</p>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-border">

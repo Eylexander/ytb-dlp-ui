@@ -17,6 +17,8 @@ export type Options = {
   convertFrom?: string;
   /** kbps, lossy conversions only */
   audioBitrate?: (typeof BITRATES)[number];
+  /** Video cuts: copy the streams (instant, starts on the previous keyframe) instead of re-encoding */
+  copy?: boolean;
 };
 
 export const BITRATES = ["96", "128", "192", "256", "320"] as const;

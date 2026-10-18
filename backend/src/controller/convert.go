@@ -14,7 +14,7 @@ var errSourceGone = errors.New("source file is gone")
 
 // ConvertArgs builds the ffmpeg command that turns src (a finished download) into a file in
 // dir: audio in o.AudioFormat, or video (o.Mode "video") in o.Container, cut to o.Start–o.End
-// if set. Progress comes on stdout as key=value lines (see handleFFmpegLine).
+// if set (o.Copy: video streams copied, from the keyframe before o.Start). Progress comes on stdout as key=value lines (see handleFFmpegLine).
 func ConvertArgs(o models.Options, src, dir string) []string {
 	base := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
 	args := []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-y"}
@@ -25,6 +25,10 @@ func ConvertArgs(o models.Options, src, dir string) []string {
 		args = append(args, "-t", seconds(o.End-o.Start))
 	}
 	args = append(args, "-i", src, "-progress", "pipe:1", "-nostats")
+	if o.Mode == "video" && o.Copy {
+		return append(args, "-map", "0:V:0", "-map", "0:a:0?", "-c", "copy", "-avoid_negative_ts", "make_zero",
+			"-movflags", "+faststart", filepath.Join(dir, base+"."+o.Container))
+	}
 	if o.Mode == "video" {
 		// Re-encoded so the cut lands on the exact frame, not the previous keyframe.
 		// 0:V skips cover art, which yt-dlp embeds as a video stream.

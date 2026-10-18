@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
-  AlertCircle, Ban, CheckCircle2, Clock, Download, Film, Loader2, Music, Play, RotateCcw, Trash2, X,
+  AlertCircle, Ban, CheckCircle2, Clock, Download, ExternalLink, Film, Loader2, Music, Play, RotateCcw, Trash2, X,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
@@ -59,6 +59,9 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
   const isAudio = isAudioJob(job);
   const [thumbFailed, setThumbFailed] = useState(false);
   const TypeIcon = isAudio ? Music : Film;
+  // ffmpeg jobs (cuts, conversions) run without downloading anything
+  const o = job.options;
+  const statusLabel = tStatus(job.status === "running" && o.convertFrom ? (o.start || o.end ? "cutting" : "converting") : job.status);
 
   async function act(fn: () => Promise<unknown>, success?: string) {
     setBusy(true);
@@ -149,17 +152,22 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
       <div className="min-w-0 flex-1 flex flex-col gap-1.5">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold leading-snug line-clamp-2 break-words">{job.title || job.url}</h3>
+            <h3 className="font-semibold leading-snug line-clamp-2 break-words">
+              <a href={job.url} target="_blank" rel="noreferrer" title={t("openSource")} className="hover:text-primary hover:underline">
+                {job.title || job.url}
+                <ExternalLink className="inline w-3.5 h-3.5 ml-1 -mt-0.5 opacity-50" />
+              </a>
+            </h3>
             <p className="text-xs text-muted-foreground truncate">
               {[job.uploader, optionsSummary(job, t), formatBytes(job.size), new Date(job.createdAt).toLocaleString(locale)]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           </div>
-          <span title={tStatus(job.status)} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-xs font-medium ${s.className}`}>
+          <span title={statusLabel} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-xs font-medium ${s.className}`}>
             <s.icon className={`w-3.5 h-3.5 ${job.status === "running" || job.status === "processing" ? "animate-spin" : ""}`} />
             {/* icon-only on phones so the title keeps its width */}
-            <span className="sr-only sm:not-sr-only">{tStatus(job.status)}</span>
+            <span className="sr-only sm:not-sr-only">{statusLabel}</span>
           </span>
         </div>
 

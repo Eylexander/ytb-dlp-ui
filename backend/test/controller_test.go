@@ -248,6 +248,7 @@ func TestConvert(t *testing.T) {
 		{Mode: "audio", AudioFormat: "best", ConvertFrom: "0123456789ab"},
 		{Mode: "video", Container: "webm", ConvertFrom: "0123456789ab"},
 		{Mode: "audio", AudioFormat: "mp3", AudioBitrate: "999", ConvertFrom: "0123456789ab"},
+		{Mode: "audio", AudioFormat: "mp3", Copy: true, ConvertFrom: "0123456789ab"},
 	} {
 		if bad.Normalize() == nil {
 			t.Errorf("expected %+v to be rejected", bad)
@@ -297,6 +298,11 @@ func TestConvert(t *testing.T) {
 		t.Fatalf("video cut: %+v, %v", j, err)
 	}
 	ids[j.ID] = "mp4"
+	j, err = c.Create(src.URL, models.Options{Mode: "video", Container: "mkv", Copy: true, ConvertFrom: src.ID, Start: 0.2})
+	if err != nil || !slices.Contains(controller.ConvertArgs(j.Options, "a.mp4", "d"), "copy") {
+		t.Fatalf("fast video cut: %+v, %v", j, err)
+	}
+	ids[j.ID] = "mkv"
 	if _, err := c.Create(src.URL, models.Options{Mode: "audio", AudioFormat: "mp3", ConvertFrom: "ba9876543210"}); err == nil {
 		t.Error("converting a missing job must fail")
 	}

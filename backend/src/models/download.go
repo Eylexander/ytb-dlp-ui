@@ -35,6 +35,9 @@ type Options struct {
 	// (audio mode) or cuts it keeping the video (video mode).
 	ConvertFrom  string `json:"convertFrom,omitempty"`
 	AudioBitrate string `json:"audioBitrate,omitempty"` // kbps for lossy conversions: 96 | 128 | 192 | 256 | 320
+	// Copy makes a video cut keep the streams as they are: instant, but it starts on the
+	// keyframe before Start instead of the exact frame.
+	Copy bool `json:"copy,omitempty"`
 }
 
 var (
@@ -69,7 +72,7 @@ func (o *Options) Normalize() error {
 		return UserErr("invalid_cut", "The end of the cut must come after its start", nil)
 	}
 	if o.ConvertFrom == "" {
-		o.AudioBitrate = ""
+		o.AudioBitrate, o.Copy = "", false
 		_, err := ParseArgs(o.CustomArgs)
 		return err
 	}
@@ -79,6 +82,8 @@ func (o *Options) Normalize() error {
 	switch {
 	case o.Mode == "video":
 		o.AudioFormat, o.AudioBitrate = "best", "" // video cuts pick their own audio codec
+	case o.Copy:
+		return fmt.Errorf("only a video cut can skip re-encoding")
 	case o.AudioFormat == "flac" || o.AudioFormat == "wav":
 		o.AudioBitrate = "" // lossless
 	default:

@@ -141,7 +141,8 @@
     "kbps": "{n} kbps",
     "converted": "converted",
     "cut": "clip {from}–{to}",
-    "cutEnd": "end"
+    "cutEnd": "end",
+    "openSource": "Open the original page"
   },
   "Status": {
     "queued": "Queued",
@@ -149,7 +150,9 @@
     "processing": "Processing",
     "done": "Done",
     "failed": "Failed",
-    "canceled": "Canceled"
+    "canceled": "Canceled",
+    "cutting": "Cutting",
+    "converting": "Converting"
   },
   "Settings": {
     "title": "Settings",
@@ -286,10 +289,18 @@
     "length": "Length {time}",
     "output": "Save as",
     "video": "Video ({container})",
-    "precise": "Re-encoded, so the cut falls exactly on the chosen frame. The original stays in your history.",
     "keys": "Space: play/pause · ←/→: 0.1 s (Shift: 1 s) · I/O: start/end here",
     "cantPlay": "Your browser can't preview this file, but you can still type the times.",
     "submit": "Cut",
-    "started": "Cut started"
+    "started": "Cut started",
+    "source": "Original",
+    "sourceTitle": "Open the original page in a new tab, to find your segment",
+    "exact": "Exact frame (re-encode, slower)",
+    "fastHint": "Instant: the streams are copied, so the clip starts on the keyframe just before the start (up to a few seconds early).",
+    "exactHint": "Re-encoded, so the cut falls exactly on the chosen frame. Can take as long as the clip itself.",
+    "keepOriginal": "The original stays in your history.",
+    "fromSource": "Showing the original video: the new clip is cut from it again, so the audio isn't encoded twice. Both stay in your history.",
+    "youtube": "Show the YouTube video",
+    "youtubeHint": "Loads YouTube's player, muted. It follows your playhead."
   }
 }
