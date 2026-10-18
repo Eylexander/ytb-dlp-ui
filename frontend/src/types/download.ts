@@ -10,6 +10,9 @@ export type Options = {
   sponsorBlock: boolean;
   /** Extra yt-dlp options, checked server-side against an allowlist */
   customArgs?: string;
+  /** Cut: keep only start–end, in seconds (no end = to the end) */
+  start?: number;
+  end?: number;
   /** Set on conversions: the job whose file ffmpeg converted to audio */
   convertFrom?: string;
   /** kbps, lossy conversions only */

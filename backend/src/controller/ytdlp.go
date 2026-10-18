@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,14 @@ func BuildArgs(o models.Options, dir, url string) []string {
 	if o.EmbedMetadata {
 		args = append(args, "--embed-metadata")
 	}
+	if o.Cut() {
+		end := "inf"
+		if o.End > 0 {
+			end = seconds(o.End)
+		}
+		// Keyframes at the cuts re-encode around them, so the clip starts exactly where asked.
+		args = append(args, "--download-sections", "*"+seconds(o.Start)+"-"+end, "--force-keyframes-at-cuts")
+	}
 	if o.SponsorBlock {
 		args = append(args, "--sponsorblock-remove", "sponsor,selfpromo,interaction")
 	}
@@ -63,6 +72,8 @@ func BuildArgs(o models.Options, dir, url string) []string {
 	// "--" keeps a URL from ever being parsed as an option.
 	return append(args, "--", url)
 }
+
+func seconds(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
 
 // errorCodes maps yt-dlp error text to a stable code, stored in Job.Error. The frontend shows
 // the matching "jobErrors.<code>" message in the user's language. First match wins.

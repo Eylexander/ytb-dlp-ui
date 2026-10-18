@@ -148,7 +148,7 @@ func (c *Controller) Create(link string, opts models.Options) (models.Job, error
 			c.mu.Unlock()
 			return models.Job{}, models.UserErr("convert_source_missing", "The original file isn't available anymore", nil)
 		}
-		j.URL, j.Title, j.Thumbnail, j.Uploader, j.Duration = s.URL, s.Title, s.Thumbnail, s.Uploader, s.Duration
+		j.URL, j.Title, j.Thumbnail, j.Uploader, j.Duration = s.URL, s.Title, s.Thumbnail, s.Uploader, opts.ClipDuration(s.Duration)
 		_ = os.Link(c.thumbPath(src), c.thumbPath(j.ID)) // share the cached thumbnail; fetched on first view otherwise
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -283,7 +283,7 @@ func (c *Controller) run(ctx context.Context, id string) {
 	case err != nil && convert:
 		job.Status, job.Error, job.ErrorDetail = models.StatusFailed, "generic", strings.TrimSpace(stderr.String())
 		if strings.Contains(job.ErrorDetail, "matches no streams") {
-			job.Error = "no_audio"
+			job.Error = map[string]string{"audio": "no_audio", "video": "no_video"}[j.Options.Mode]
 		}
 	case err != nil:
 		job.Status = models.StatusFailed
@@ -353,7 +353,7 @@ func (c *Controller) handleLine(id, line string) {
 			return
 		}
 		c.update(id, true, func(j *models.Job) {
-			j.Title, j.Thumbnail, j.Uploader, j.Duration = info.Title, info.Thumbnail, info.Uploader, info.Duration
+			j.Title, j.Thumbnail, j.Uploader, j.Duration = info.Title, info.Thumbnail, info.Uploader, j.Options.ClipDuration(info.Duration)
 		})
 		if info.Thumbnail != "" {
 			go func() {

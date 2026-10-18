@@ -139,7 +139,9 @@
     "cantPlay": "Votre navigateur ne peut pas lire ce fichier{ext, select, none {} other { ({ext})}}.",
     "cantPlayHint": "Enregistrez-le et ouvrez-le dans un lecteur multimédia, ou téléchargez-le à nouveau en MP4.",
     "kbps": "{n} kbit/s",
-    "converted": "converti"
+    "converted": "converti",
+    "cut": "extrait {from}–{to}",
+    "cutEnd": "fin"
   },
   "Status": {
     "queued": "En attente",
@@ -214,7 +216,8 @@
     "invalid_username": "Le nom d’utilisateur doit faire de 1 à 64 caractères",
     "password_too_short": "Le nouveau mot de passe doit faire au moins {min} caractères",
     "account_save_failed": "L’enregistrement a échoué : {detail}",
-    "convert_source_missing": "Le fichier d’origine n’est plus disponible"
+    "convert_source_missing": "Le fichier d’origine n’est plus disponible",
+    "invalid_cut": "La fin de l’extrait doit venir après son début"
   },
   "JobErrors": {
     "invalid_url": "Ce lien ne semble pas valide.",
@@ -237,7 +240,8 @@
     "ytdlp_missing": "yt-dlp n’est pas installé sur le serveur.",
     "generic": "Le téléchargement a échoué. Voir les détails ci-dessous.",
     "source_missing": "Le fichier d’origine a été supprimé avant le début de la conversion.",
-    "no_audio": "Ce fichier n’a pas de piste audio à convertir."
+    "no_audio": "Ce fichier n’a pas de piste audio à convertir.",
+    "no_video": "Ce fichier n’a pas de piste vidéo à couper."
   },
   "Convert": {
     "action": "Convertir",
@@ -257,5 +261,35 @@
     "cancel": "Annuler",
     "submit": "Convertir",
     "started": "Conversion lancée"
+  },
+  "Cut": {
+    "legend": "Extrait (facultatif)",
+    "start": "Début",
+    "end": "Fin",
+    "hint": "Ne garder que ce passage, par ex. 1:30 ou 1:02:03. Laissez Fin vide pour aller jusqu’au bout.",
+    "invalid": "Écrivez les temps sous la forme 90, 1:30 ou 1:02:03, avec la fin après le début."
+  },
+  "Cutter": {
+    "action": "Couper",
+    "title": "Couper",
+    "close": "Fermer",
+    "play": "Lire",
+    "pause": "Pause",
+    "back": "Reculer de {n, number} s",
+    "forward": "Avancer de {n, number} s",
+    "preview": "Lire la sélection",
+    "timeline": "Frise",
+    "start": "Début",
+    "end": "Fin",
+    "setStart": "Début ici",
+    "setEnd": "Fin ici",
+    "length": "Durée {time}",
+    "output": "Enregistrer en",
+    "video": "Vidéo ({container})",
+    "precise": "Réencodé, pour que la coupe tombe exactement sur l’image choisie. L’original reste dans l’historique.",
+    "keys": "Espace : lecture/pause · ←/→ : 0,1 s (Maj : 1 s) · I/O : début/fin ici",
+    "cantPlay": "Votre navigateur ne peut pas prévisualiser ce fichier, mais vous pouvez saisir les temps.",
+    "submit": "Couper",
+    "started": "Découpe lancée"
   }
 }

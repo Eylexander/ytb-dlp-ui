@@ -7,9 +7,10 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import ConvertButton from "@/components/ConvertButton";
+import CutButton from "@/components/CutButton";
 import { translateCode } from "@/i18n";
 import { api, fileUrl, retryJob } from "@/lib/api-client";
-import { formatBytes, formatDuration } from "@/lib/format";
+import { formatBytes, formatDuration, formatTimestamp } from "@/lib/format";
 import { isActive, isAudioJob, type Job, type Status } from "@/types/download";
 
 // Labels: messages "Status.<status>"
@@ -29,8 +30,13 @@ function optionsSummary(j: Job, t: ReturnType<typeof useTranslations<"Job">>) {
     o.mode === "audio"
       ? o.audioFormat === "best" ? t("bestQuality") : o.audioFormat.toUpperCase()
       : `${o.quality === "best" ? t("best") : `${o.quality}p`} · ${o.container.toUpperCase()}`;
-  if (o.convertFrom) return [format, o.audioBitrate && t("kbps", { n: o.audioBitrate }), t("converted")].filter(Boolean).join(" · ");
-  return o.customArgs ? `${format} · ${t("customOptions")}` : format;
+  const cut = (o.start || o.end) && t("cut", { from: formatTimestamp(o.start), to: o.end ? formatTimestamp(o.end) : t("cutEnd") });
+  const parts = !o.convertFrom
+    ? [format, o.customArgs && t("customOptions"), cut]
+    : o.mode === "video"
+      ? [o.container.toUpperCase(), cut] // a cut of a downloaded video
+      : [format, o.audioBitrate && t("kbps", { n: o.audioBitrate }), t("converted"), cut];
+  return parts.filter(Boolean).join(" · ");
 }
 
 type Props = {
@@ -210,6 +216,7 @@ export default function JobCard({ job, onChange, selected = false, onSelect }: P
               <a className="btn btn-ghost h-8 px-2" href={fileUrl(job, true)} download title={t("saveTitle")}>
                 <Download /> <ActionLabel>{t("save")}</ActionLabel>
               </a>
+              <CutButton job={job} onChange={onChange} className="btn btn-ghost h-8 px-2" />
               <ConvertButton job={job} onChange={onChange} className="btn btn-ghost h-8 px-2" />
             </>
           )}

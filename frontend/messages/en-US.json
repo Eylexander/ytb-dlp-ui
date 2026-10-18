@@ -139,7 +139,9 @@
     "cantPlay": "Your browser can't play this file{ext, select, none {} other { ({ext})}}.",
     "cantPlayHint": "Save it and open it in a media player, or download it again as MP4.",
     "kbps": "{n} kbps",
-    "converted": "converted"
+    "converted": "converted",
+    "cut": "clip {from}–{to}",
+    "cutEnd": "end"
   },
   "Status": {
     "queued": "Queued",
@@ -214,7 +216,8 @@
     "invalid_username": "The username must be 1 to 64 characters",
     "password_too_short": "The new password must be at least {min} characters",
     "account_save_failed": "Saving failed: {detail}",
-    "convert_source_missing": "The original file isn't available anymore"
+    "convert_source_missing": "The original file isn't available anymore",
+    "invalid_cut": "The end of the cut must come after its start"
   },
   "JobErrors": {
     "invalid_url": "That doesn't look like a valid URL.",
@@ -237,7 +240,8 @@
     "ytdlp_missing": "yt-dlp isn't installed on the server.",
     "generic": "The download failed. See details below.",
     "source_missing": "The original file was deleted before the conversion started.",
-    "no_audio": "This file has no audio track to convert."
+    "no_audio": "This file has no audio track to convert.",
+    "no_video": "This file has no video track to cut."
   },
   "Convert": {
     "action": "Convert",
@@ -257,5 +261,35 @@
     "cancel": "Cancel",
     "submit": "Convert",
     "started": "Conversion started"
+  },
+  "Cut": {
+    "legend": "Cut (optional)",
+    "start": "Start",
+    "end": "End",
+    "hint": "Keep only this part, e.g. 1:30 or 1:02:03. Leave End empty to go to the end.",
+    "invalid": "Write times as 90, 1:30 or 1:02:03, with the end after the start."
+  },
+  "Cutter": {
+    "action": "Cut",
+    "title": "Cut",
+    "close": "Close",
+    "play": "Play",
+    "pause": "Pause",
+    "back": "Back {n, number} s",
+    "forward": "Forward {n, number} s",
+    "preview": "Play selection",
+    "timeline": "Timeline",
+    "start": "Start",
+    "end": "End",
+    "setStart": "Start here",
+    "setEnd": "End here",
+    "length": "Length {time}",
+    "output": "Save as",
+    "video": "Video ({container})",
+    "precise": "Re-encoded, so the cut falls exactly on the chosen frame. The original stays in your history.",
+    "keys": "Space: play/pause · ←/→: 0.1 s (Shift: 1 s) · I/O: start/end here",
+    "cantPlay": "Your browser can't preview this file, but you can still type the times.",
+    "submit": "Cut",
+    "started": "Cut started"
   }
 }

@@ -28,7 +28,11 @@ type Options struct {
 	EmbedMetadata  bool   `json:"embedMetadata"`
 	SponsorBlock   bool   `json:"sponsorBlock"`
 	CustomArgs     string `json:"customArgs,omitempty"` // validated by ParseArgs
-	// ConvertFrom is a job ID: instead of downloading, ffmpeg converts that job's file to audio.
+	// Start and End cut the media to that range, in seconds (End 0 = to the end).
+	Start float64 `json:"start,omitempty"`
+	End   float64 `json:"end,omitempty"`
+	// ConvertFrom is a job ID: instead of downloading, ffmpeg converts that job's file to audio
+	// (audio mode) or cuts it keeping the video (video mode).
 	ConvertFrom  string `json:"convertFrom,omitempty"`
 	AudioBitrate string `json:"audioBitrate,omitempty"` // kbps for lossy conversions: 96 | 128 | 192 | 256 | 320
 }
@@ -61,28 +65,48 @@ func (o *Options) Normalize() error {
 		return fmt.Errorf("unknown audio format %q", o.AudioFormat)
 	case !subLangsRe.MatchString(o.SubLangs):
 		return UserErr("invalid_sub_langs", fmt.Sprintf("invalid subtitle languages %q (example: en.*,fr)", o.SubLangs), map[string]any{"value": o.SubLangs})
+	case o.Start < 0 || o.End < 0 || (o.End > 0 && o.End <= o.Start):
+		return UserErr("invalid_cut", "The end of the cut must come after its start", nil)
 	}
 	if o.ConvertFrom == "" {
 		o.AudioBitrate = ""
 		_, err := ParseArgs(o.CustomArgs)
 		return err
 	}
-	// Conversions only use the audio format and bitrate; drop the rest so it isn't shown or stored.
+	// Conversions (audio mode) and video cuts only use the output format, bitrate and cut;
+	// drop the rest so it isn't shown or stored.
 	o.CustomArgs, o.Subtitles, o.SponsorBlock, o.EmbedThumbnail, o.EmbedMetadata = "", false, false, false, false
-	if o.AudioFormat == "flac" || o.AudioFormat == "wav" {
+	switch {
+	case o.Mode == "video":
+		o.AudioFormat, o.AudioBitrate = "best", "" // video cuts pick their own audio codec
+	case o.AudioFormat == "flac" || o.AudioFormat == "wav":
 		o.AudioBitrate = "" // lossless
-	} else {
+	default:
 		def(&o.AudioBitrate, "320")
 	}
 	switch {
 	case !jobIDRe.MatchString(o.ConvertFrom):
 		return fmt.Errorf("invalid source %q", o.ConvertFrom)
-	case o.Mode != "audio" || o.AudioFormat == "best":
+	case o.Mode == "video" && o.Container == "webm":
+		return fmt.Errorf("a video cut is saved as mp4 or mkv") // re-encoded to H.264/AAC
+	case o.Mode == "audio" && o.AudioFormat == "best":
 		return fmt.Errorf("a conversion needs an audio format")
 	case o.AudioBitrate != "" && !slices.Contains([]string{"96", "128", "192", "256", "320"}, o.AudioBitrate):
 		return fmt.Errorf("unknown bitrate %q", o.AudioBitrate)
 	}
 	return nil
+}
+
+// Cut reports whether only part of the media is kept.
+func (o Options) Cut() bool { return o.Start > 0 || o.End > 0 }
+
+// ClipDuration is the length left after the cut, given the full length (0 if unknown).
+func (o Options) ClipDuration(full float64) float64 {
+	end := o.End
+	if end == 0 || (full > 0 && end > full) {
+		end = full
+	}
+	return max(0, end-o.Start)
 }
 
 type Job struct {

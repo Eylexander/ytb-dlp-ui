@@ -22,3 +22,18 @@ export function formatDuration(s?: number) {
   const sec = String(s % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
+
+/** "90", "1:30" or "1:02:03.5" → seconds; undefined if empty, NaN if malformed. */
+export function parseTime(s: string) {
+  s = s.trim();
+  if (!s) return undefined;
+  if (!/^(\d+:){0,2}\d+(\.\d+)?$/.test(s)) return NaN;
+  return s.split(":").reduce((acc, part) => acc * 60 + Number(part), 0);
+}
+
+/** Like formatDuration, with hundredths when there are any: "0:00", "1:23.45", "1:02:03.50". */
+export function formatTimestamp(s = 0) {
+  const cs = Math.round(s * 100);
+  const frac = cs % 100 ? `.${String(cs % 100).padStart(2, "0")}` : "";
+  return (formatDuration(Math.floor(cs / 100)) || "0:00") + frac;
+}

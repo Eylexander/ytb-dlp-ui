@@ -6,6 +6,7 @@ import { ArrowRight, ClipboardPaste, Download, Film, Loader2, Music, SlidersHori
 import { useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import AllowedOptions from "@/components/AllowedOptions";
+import CutFields, { NO_CUT, parseCut } from "@/components/CutFields";
 import JobCard from "@/components/JobCard";
 import { api, each } from "@/lib/api-client";
 import { useJobs } from "@/hooks/useJobs";
@@ -29,9 +30,11 @@ const QUALITIES = ["best", "2160", "1440", "1080", "720", "480", "360"] as const
 
 export default function DownloadPage() {
   const t = useTranslations("Download");
+  const tCut = useTranslations("Cut");
   const { jobs, error, refresh } = useJobs();
   const [url, setUrl] = useState("");
   const [opts, setOpts] = useState<Options>(DEFAULTS);
+  const [cut, setCut] = useState(NO_CUT); // not remembered: a stale cut would silently trim the next download
   const [submitting, setSubmitting] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -82,14 +85,17 @@ export default function DownloadPage() {
   /** One job per link: links can be separated by new lines or spaces. */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const range = parseCut(cut);
+    if (!range) return void toast.error(tCut("invalid"));
     const unique = [...new Set(links)];
     setSubmitting(true);
     // Invalid links are rejected by the server one by one and stay in the box.
-    const { failed, firstError } = await each(unique, (url) => api("/downloads", { json: { url, options: opts } }));
+    const { failed, firstError } = await each(unique, (url) => api("/downloads", { json: { url, options: { ...opts, ...range } } }));
     const added = unique.length - failed.length;
     if (added) toast.success(t("added", { count: added }));
     if (failed.length) toast.error(t("someFailed", { count: failed.length, error: firstError }));
     setUrl(failed.join("\n")); // keep only what failed, so it can be fixed and resent
+    if (!failed.length) setCut(NO_CUT);
     setSubmitting(false);
     refresh();
   }
@@ -205,11 +211,14 @@ export default function DownloadPage() {
             )}
           </div>
 
-          <details className="group" open={!!opts.customArgs || undefined}>
+          <details className="group" open={!!opts.customArgs || !!cut.start || !!cut.end || undefined}>
             <summary className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground select-none">
               <SlidersHorizontal className="w-4 h-4" /> {t("moreOptions")}
             </summary>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <CutFields value={cut} onChange={setCut} />
+              </div>
               <Check label={t("embedThumbnail")} hint={t("embedThumbnailHint")} checked={opts.embedThumbnail} onChange={(v) => set("embedThumbnail", v)} />
               <Check label={t("embedMetadata")} hint={t("embedMetadataHint")} checked={opts.embedMetadata} onChange={(v) => set("embedMetadata", v)} />
               <Check label={t("sponsorBlock")} hint={t("sponsorBlockHint")} checked={opts.sponsorBlock} onChange={(v) => set("sponsorBlock", v)} />
@@ -232,7 +241,7 @@ export default function DownloadPage() {
                   className="input font-mono text-sm"
                   value={opts.customArgs ?? ""}
                   onChange={(e) => set("customArgs", e.target.value)}
-                  placeholder='--limit-rate 2M --download-sections "*0:30-1:30"'
+                  placeholder="--limit-rate 2M --embed-chapters"
                   autoComplete="off"
                   spellCheck={false}
                 />

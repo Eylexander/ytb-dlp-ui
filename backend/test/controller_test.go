@@ -47,7 +47,22 @@ func TestBuildArgs(t *testing.T) {
 		t.Errorf("bad audio args: %s", joined)
 	}
 
-	for _, bad := range []models.Options{{Mode: "x"}, {Quality: "999"}, {SubLangs: "en --exec rm"}} {
+	cut := models.Options{Start: 30, End: 90.5}
+	if err := cut.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if joined = strings.Join(controller.BuildArgs(cut, "/d", "u"), " "); !strings.Contains(joined, "--download-sections *30-90.5 --force-keyframes-at-cuts") {
+		t.Errorf("bad cut args: %s", joined)
+	}
+	if got := cut.ClipDuration(60); got != 30 {
+		t.Errorf("clip of a 60s video cut at 30-90.5: got %v, want 30", got)
+	}
+	cut = models.Options{Start: 10}
+	if joined = strings.Join(controller.BuildArgs(cut, "/d", "u"), " "); !strings.Contains(joined, "*10-inf") {
+		t.Errorf("open-ended cut: %s", joined)
+	}
+
+	for _, bad := range []models.Options{{Mode: "x"}, {Quality: "999"}, {SubLangs: "en --exec rm"}, {Start: 5, End: 5}, {Start: -1}} {
 		if bad.Normalize() == nil {
 			t.Errorf("expected %+v to be rejected", bad)
 		}
@@ -231,7 +246,7 @@ func TestConvert(t *testing.T) {
 	for _, bad := range []models.Options{
 		{Mode: "audio", AudioFormat: "mp3", ConvertFrom: "../etc"},
 		{Mode: "audio", AudioFormat: "best", ConvertFrom: "0123456789ab"},
-		{Mode: "video", AudioFormat: "mp3", ConvertFrom: "0123456789ab"},
+		{Mode: "video", Container: "webm", ConvertFrom: "0123456789ab"},
 		{Mode: "audio", AudioFormat: "mp3", AudioBitrate: "999", ConvertFrom: "0123456789ab"},
 	} {
 		if bad.Normalize() == nil {
@@ -272,6 +287,16 @@ func TestConvert(t *testing.T) {
 		}
 		ids[j.ID] = f
 	}
+	j, err := c.Create(src.URL, models.Options{Mode: "audio", AudioFormat: "wav", ConvertFrom: src.ID, Start: 0.25, End: 0.75})
+	if err != nil || j.Duration != 0.5 {
+		t.Fatalf("a cut conversion must last the clip's length: %+v, %v", j, err)
+	}
+	ids[j.ID] = "wav"
+	j, err = c.Create(src.URL, models.Options{Mode: "video", ConvertFrom: src.ID, Start: 0.2, End: 0.6})
+	if err != nil || j.Options.AudioFormat != "best" {
+		t.Fatalf("video cut: %+v, %v", j, err)
+	}
+	ids[j.ID] = "mp4"
 	if _, err := c.Create(src.URL, models.Options{Mode: "audio", AudioFormat: "mp3", ConvertFrom: "ba9876543210"}); err == nil {
 		t.Error("converting a missing job must fail")
 	}
